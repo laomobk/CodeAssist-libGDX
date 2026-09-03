@@ -5,6 +5,16 @@ pluginManagement {
     // instrumentation) — they must share AGP's classloader, which buildSrc can't provide.
     includeBuild("build-logic")
     repositories {
+        maven { setUrl("https://maven.aliyun.com/repository/central") }
+        maven { setUrl("https://maven.aliyun.com/repository/jcenter") }
+        maven { setUrl("https://maven.aliyun.com/repository/google") }
+        maven { setUrl("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { setUrl("https://maven.aliyun.com/repository/public") }
+        maven { setUrl("https://jitpack.io") }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+
         gradlePluginPortal()
         mavenCentral()
         google()
@@ -18,6 +28,15 @@ dependencyResolutionManagement {
     // Modules must not declare their own repositories; all resolution flows through here.
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        maven { setUrl("https://maven.aliyun.com/repository/central") }
+        maven { setUrl("https://maven.aliyun.com/repository/jcenter") }
+        maven { setUrl("https://maven.aliyun.com/repository/google") }
+        maven { setUrl("https://maven.aliyun.com/repository/gradle-plugin") }
+        maven { setUrl("https://maven.aliyun.com/repository/public") }
+        maven { setUrl("https://jitpack.io") }
+        google()
+        mavenCentral()
+
         mavenCentral()
         google() // Compose Multiplatform / AndroidX artifacts
         // :kotlin-compiler-deps only: the unshaded `-for-ide` compiler and the un-relocated IntelliJ platform

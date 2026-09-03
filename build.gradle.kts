@@ -16,6 +16,8 @@ plugins {
     alias(libs.plugins.android.kmp.library) apply false
 }
 
+
+
 subprojects {
     group = "dev.ide"
     version = "3.4.0"
