@@ -12,6 +12,16 @@ import dev.ide.ui.ext.EditorLanguageRegistry
 import dev.ide.ui.ext.SyntaxFamily
 import dev.ide.ui.theme.SyntaxColors
 
+private val GLSL_KEYWORDS = setOf(
+    "attribute", "const", "uniform", "varying", "buffer", "shared", "coherent", "volatile", "restrict",
+    "readonly", "writeonly", "layout", "centroid", "flat", "smooth", "noperspective", "patch", "sample",
+    "break", "continue", "do", "for", "while", "switch", "case", "default", "if", "else", "in", "out",
+    "inout", "float", "double", "int", "void", "bool", "true", "false", "invariant", "discard", "return",
+    "mat2", "mat3", "mat4", "dmat2", "dmat3", "dmat4", "vec2", "vec3", "vec4", "ivec2", "ivec3",
+    "ivec4", "bvec2", "bvec3", "bvec4", "dvec2", "dvec3", "dvec4", "uint", "uvec2", "uvec3",
+    "uvec4", "lowp", "mediump", "highp", "precision", "sampler2D", "sampler3D", "samplerCube", "struct",
+)
+
 /**
  * The editor's view of a file's language: everything the text layer needs (which scanner colors it, its
  * keywords, how a comment is written), carried as one [EditorLanguageProfile].
@@ -62,6 +72,14 @@ class CodeLanguage(val profile: EditorLanguageProfile) {
                 blockCommentOpen = "/*", blockCommentClose = "*/",
             )
         )
+        val Glsl = CodeLanguage(
+            EditorLanguageProfile(
+                id = "glsl", suffixes = listOf(".glsl", ".vert", ".frag", ".vs", ".fs"),
+                syntax = SyntaxFamily.C_FAMILY,
+                keywords = GLSL_KEYWORDS, lineComment = "//",
+                blockCommentOpen = "/*", blockCommentClose = "*/",
+            )
+        )
         // ProGuard/R8 keep-rule files: `proguard-rules.pro`, `consumer-rules.pro`, any `*.pro`.
         val Proguard = CodeLanguage(
             EditorLanguageProfile(
@@ -83,7 +101,7 @@ class CodeLanguage(val profile: EditorLanguageProfile) {
 
 /** The profiles the shell ships. Registered once into [EditorLanguageRegistry] by [ensureEditorLanguages]. */
 private val BUILT_IN_EDITOR_LANGUAGES: List<CodeLanguage> =
-    listOf(CodeLanguage.Java, CodeLanguage.Kotlin, CodeLanguage.Xml, CodeLanguage.Aidl,
+    listOf(CodeLanguage.Java, CodeLanguage.Kotlin, CodeLanguage.Xml, CodeLanguage.Aidl, CodeLanguage.Glsl,
         CodeLanguage.Proguard, CodeLanguage.Markdown)
 
 private var builtInsRegistered = false

@@ -2,6 +2,7 @@ package dev.ide.ui.editor.preview
 
 import dev.ide.ui.theme.Ide
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,12 +46,16 @@ import dev.ide.ui.generated.resources.respreview_render_drawable_failed
 import dev.ide.ui.generated.resources.respreview_unresolved
 import dev.ide.ui.generated.resources.respreview_unsupported
 import dev.ide.ui.theme.Ca
+import dev.ide.ui.components.IconButtonCa
+import dev.ide.ui.icons.CaIcons
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
 /** Which resource preview a file gets — or null when it has none (so the Preview toggle stays hidden). */
-enum class PreviewKind { DRAWABLE, COLOR, BITMAP }
+enum class PreviewKind { DRAWABLE, COLOR, BITMAP, AUDIO }
 
 private val IMAGE_EXTS = setOf("png", "webp", "jpg", "jpeg", "gif", "bmp")
+private val AUDIO_EXTS = setOf("mp3", "ogg", "wav")
 
 /**
  * The preview a file qualifies for, by Android `res/` convention: a drawable/color/mipmap XML renders as a
@@ -57,14 +63,17 @@ private val IMAGE_EXTS = setOf("png", "webp", "jpg", "jpeg", "gif", "bmp")
  */
 fun previewKindOf(path: String): PreviewKind? {
     val p = path.replace('\\', '/').lowercase()
-    if (!p.contains("/res/")) return null
+    val inResources = p.contains("/res/")
+    val inAssets = p.contains("/assets/") || p.startsWith("assets/")
+    if (!inResources && !inAssets) return null
     val file = p.substringAfterLast('/')
     val ext = file.substringAfterLast('.', "")
     val folder = p.substringBeforeLast('/').substringAfterLast('/').substringBefore('-')
     return when (ext) {
-        "xml" if (folder == "drawable" || folder == "color" || folder == "mipmap") -> PreviewKind.DRAWABLE
+        "xml" if (inResources && (folder == "drawable" || folder == "color" || folder == "mipmap")) -> PreviewKind.DRAWABLE
         in IMAGE_EXTS -> PreviewKind.BITMAP
-        "xml" if folder == "values" && file.contains("color") -> PreviewKind.COLOR
+        in AUDIO_EXTS if inAssets -> PreviewKind.AUDIO
+        "xml" if inResources && folder == "values" && file.contains("color") -> PreviewKind.COLOR
         else -> null
     }
 }
@@ -87,9 +96,84 @@ fun ResourcePreviewPane(
             PreviewKind.DRAWABLE -> DrawablePreview(path, text, backend)
             PreviewKind.COLOR -> ColorPreview(path, text, backend)
             PreviewKind.BITMAP -> BitmapPreview(path, backend)
+            PreviewKind.AUDIO -> AudioPreview(path, backend)
             null -> EmptyPreview(stringResource(Res.string.respreview_no_preview))
         }
     }
+}
+
+@Composable
+private fun AudioPreview(path: String, backend: IdeBackend) {
+    val player = rememberAudioPreviewPlayer()
+    var error by remember(path) { mutableStateOf<String?>(null) }
+    var loaded by remember(path) { mutableStateOf(false) }
+    var playing by remember(path) { mutableStateOf(false) }
+    var position by remember(path) { mutableStateOf(0L) }
+    var duration by remember(path) { mutableStateOf(0L) }
+
+    LaunchedEffect(path) {
+        loaded = false
+        error = null
+        val bytes = runCatching { backend.preview.resourceImageBytes(path) }.getOrNull()
+        error = if (bytes == null) "Unable to read audio file"
+        else player.load(bytes, path.substringAfterLast('.', ""))
+        duration = player.durationMillis
+        loaded = true
+    }
+    LaunchedEffect(path, loaded) {
+        while (loaded) {
+            playing = player.isPlaying
+            position = player.positionMillis.coerceAtMost(player.durationMillis)
+            duration = player.durationMillis
+            delay(150)
+        }
+    }
+    DisposableEffect(player) { onDispose { player.release() } }
+
+    when {
+        !loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {}
+        error != null -> EmptyPreview(error!!)
+        else -> Column(
+            Modifier.fillMaxSize().padding(Ca.spacing.s5),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            androidx.compose.material3.Text(
+                path.substringAfterLast('/').substringAfterLast('\\'),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(top = Ca.spacing.s4),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Ca.spacing.s3),
+            ) {
+                IconButtonCa(
+                    icon = if (playing) CaIcons.pause else CaIcons.play,
+                    contentDescription = if (playing) "Pause" else "Play",
+                    onClick = {
+                        if (playing) player.pause() else player.play()
+                        playing = player.isPlaying
+                    },
+                )
+                Slider(
+                    value = position.toFloat(),
+                    onValueChange = {
+                        position = it.toLong()
+                        player.seekTo(position)
+                    },
+                    valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Caption("${formatDuration(position)} / ${formatDuration(duration)}")
+        }
+    }
+}
+
+private fun formatDuration(millis: Long): String {
+    val seconds = millis.coerceAtLeast(0L) / 1_000L
+    return "${seconds / 60L}:${(seconds % 60L).toString().padStart(2, '0')}"
 }
 
 @Composable

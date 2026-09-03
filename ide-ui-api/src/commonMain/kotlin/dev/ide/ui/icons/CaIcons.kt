@@ -77,6 +77,7 @@ object CaIcons {
         s("M8 8a2.5 2.5 0 1 0-2.5 2.5H18a2.5 2.5 0 1 1-2.5 2.5V8.5A2.5 2.5 0 1 1 18 11H6a2.5 2.5 0 1 0 2.5 2.5V8z"),
     )
     val play = build("play", f("M8 5.5l11 6.5-11 6.5z"))
+    val pause = build("pause", f("M7 5h4v14H7z"), f("M13 5h4v14h-4z"))
     val save = build(
         "save",
         s("M5 5h10l4 4v10H5Z"), // body with a folded top-right corner

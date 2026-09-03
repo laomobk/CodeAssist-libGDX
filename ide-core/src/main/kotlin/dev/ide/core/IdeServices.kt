@@ -491,6 +491,8 @@ class IdeServices private constructor(
     private val programInterpreter: ProgramInterpreter =
         env.container.getServiceOrNull(PROGRAM_INTERPRETER) ?: VmProgramInterpreter()
     private val apkInstaller: ApkInstaller? = env.container.getServiceOrNull(APK_INSTALLER)
+    private val libGdxPreviewLauncher: LibGdxPreviewLauncher? =
+        env.container.getServiceOrNull(LIBGDX_PREVIEW_LAUNCHER)
     private val appLogChannel: AppLogChannel? = env.container.getServiceOrNull(APP_LOG_CHANNEL)
     private val customViewRuntime: CustomViewRuntime? = env.container.getServiceOrNull(CUSTOM_VIEW_RUNTIME)
     private val kotlinPluginLoader: KotlinPluginLoader? = env.container.getServiceOrNull(KOTLIN_PLUGIN_LOADER)
@@ -655,6 +657,7 @@ class IdeServices private constructor(
         override val androidTools get() = this@IdeServices.androidTools
         override val programInterpreter get() = this@IdeServices.programInterpreter
         override val apkInstaller get() = this@IdeServices.apkInstaller
+        override val libGdxPreviewLauncher get() = this@IdeServices.libGdxPreviewLauncher
         override val appLogChannel get() = this@IdeServices.appLogChannel
         override fun modules() = this@IdeServices.modules()
         override fun projectOf(module: Module) = this@IdeServices.projectOf(module)
@@ -2055,7 +2058,19 @@ class IdeServices private constructor(
      * matches source roots, so XML files under `res/` and the manifest resolve to their module.
      */
     fun moduleForEditableFile(file: Path): Module? =
-        moduleForFile(file) ?: moduleForResourceFile(file) ?: moduleForAidlFile(file) ?: moduleForManifestFile(file)
+        moduleForFile(file) ?: moduleForResourceFile(file) ?: moduleForAuxiliaryContentFile(file)
+        ?: moduleForAidlFile(file) ?: moduleForManifestFile(file)
+
+    /** Non-source content such as libGDX assets still belongs to a module for language services/completion. */
+    private fun moduleForAuxiliaryContentFile(file: Path): Module? {
+        val target = file.toAbsolutePath().normalize()
+        return modules().firstOrNull { module ->
+            module.sourceSets.flatMap { it.contentRoots }.any { root ->
+                val auxiliary = ContentRole.ASSETS in root.roles || ContentRole.RESOURCE in root.roles
+                auxiliary && target.startsWith(Paths.get(root.dir.path).toAbsolutePath().normalize())
+            }
+        }
+    }
 
     /** The module whose [AndroidFacet] manifest path is [file], or null. */
     private fun moduleForManifestFile(file: Path): Module? {

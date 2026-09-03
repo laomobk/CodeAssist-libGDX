@@ -47,6 +47,7 @@ import dev.ide.core.EngineContext
 import dev.ide.core.MEM_HEARTBEAT_EVERY_SAMPLES
 import dev.ide.core.MEM_SAMPLE_INTERVAL_MS
 import dev.ide.core.MemSample
+import dev.ide.core.LibGdxPreviewRequest
 import dev.ide.core.PeakHeap
 import dev.ide.core.PermissionPolicy
 import dev.ide.core.event.BuildEvent
@@ -649,6 +650,11 @@ internal class BuildService(private val ctx: EngineContext) : Disposable, BuildC
             )
             add(RunTaskOption("build:${m.name}", "Build ${m.name}", "build"))
         }
+        if (ctx.libGdxPreviewLauncher != null) {
+            for (m in ctx.modules().filter { it.type.id == "java-libgdx" }) {
+                add(RunTaskOption("libgdxRun:${m.name}", "Preview ${m.name}", "run"))
+            }
+        }
         for (m in ctx.modules().filter { it.type.id == "android-app" }) {
             for (v in AndroidVariants.compute(m)) {
                 val cap = v.name.replaceFirstChar { it.uppercase() }
@@ -760,6 +766,46 @@ internal class BuildService(private val ctx: EngineContext) : Disposable, BuildC
                             instanceMain = target.instance
                         ), "> Run $mainClass", onComplete = ::finalizeRunConsole
                     )
+                }
+
+                id.startsWith("libgdxRun:") -> {
+                    val moduleName = id.removePrefix("libgdxRun:")
+                    val module = ctx.modules().firstOrNull { it.name == moduleName }
+                        ?: return fail("No module '$moduleName'.")
+                    val launcher = ctx.libGdxPreviewLauncher
+                        ?: return fail("libGDX preview is only available on Android.")
+                    unresolvedBlocker(module)?.let { return fail(it) }
+                    val project = ctx.projectOf(module)
+                        ?: return fail("Internal error: no project for module '${module.name}'.")
+                    val moduleRoot = ctx.moduleRoot(module)
+                        ?: return fail("Cannot locate module '${module.name}'.")
+                    val marker = moduleRoot.resolve("libgdx.properties")
+                    val mainClass = runCatching {
+                        java.util.Properties().apply { Files.newInputStream(marker).use(::load) }
+                            .getProperty("mainClass")?.trim()
+                    }.getOrNull()?.takeIf { it.isNotEmpty() }
+                        ?: return fail("Missing mainClass in ${marker.fileName}.")
+                    val assets = module.sourceSets.flatMap { it.contentRoots }
+                        .firstOrNull { ContentRole.ASSETS in it.roles }
+                        ?.let { Paths.get(it.dir.path) }
+                        ?: moduleRoot.parent.resolve("assets")
+                    val graph = buildSystem.createBuildGraph(
+                        project,
+                        BuildRequest(
+                            listOf(module.id), VariantSelector(ctx.activeVariant(module)), BuildGoal.COMPILE_ONLY
+                        ),
+                        buildContext(),
+                    )
+                    launch(module.name, graph, "> Preview libGDX · ${module.name}") { log ->
+                        launcher.launch(
+                            LibGdxPreviewRequest(
+                                buildSystem.runtimeClasspath(module),
+                                mainClass,
+                                assets.toAbsolutePath().normalize(),
+                            )
+                        )
+                        log("Opened embedded libGDX preview: $mainClass")
+                    }
                 }
 
                 id.startsWith("assemble:") -> {

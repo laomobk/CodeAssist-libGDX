@@ -61,8 +61,11 @@ room = "2.8.4"
 moshi = "1.15.2"   # com.squareup.moshi — moshi-kotlin-codegen (KSP-native JSON adapters)
 glide = "5.0.9"    # com.github.bumptech.glide — the `ksp` processor + `annotations` (@GlideModule) marker
 dagger = "2.60.1"  # com.google.dagger — Hilt/Dagger; hilt-compiler is the KSP processor, hilt-core the marker
+libgdx = "1.14.2"
 
 [libraries]
+libgdx-core = { module = "com.badlogicgames.gdx:gdx", version.ref = "libgdx" }
+libgdx-backend-android = { module = "com.badlogicgames.gdx:gdx-backend-android", version.ref = "libgdx" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }

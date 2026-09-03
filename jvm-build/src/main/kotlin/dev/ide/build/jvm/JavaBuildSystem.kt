@@ -113,7 +113,7 @@ class JavaBuildSystem(
 
     /** Runtime classpath for running [module]: its own output (Java + Kotlin) + the full runtime dependency
      *  closure (each module output paired with its sibling `kotlin-classes`, present only for Kotlin modules). */
-    private fun runtimeClasspath(module: Module): List<Path> {
+    fun runtimeClasspath(module: Module): List<Path> {
         val depEntries = module.classpath(DependencyScope.RUNTIME_ONLY).entries.map { Paths.get(it.root.path) }
         return (classOutputs(module) + depEntries + kotlinSiblings(depEntries))
             .filter { Files.isDirectory(it) || Files.isRegularFile(it) }

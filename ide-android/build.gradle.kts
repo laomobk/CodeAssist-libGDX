@@ -63,6 +63,41 @@ if (hasFirebaseConfig) {
     logger.lifecycle("ide-android: no google-services.json — building without push notifications.")
 }
 
+// Native libGDX runtime belongs to the IDE APK, not to a generated user APK. The classifier jars place
+// libgdx.so at their root, so stage each into the ABI directory AGP expects.
+val libgdxNatives: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+dependencies {
+    libgdxNatives("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-armeabi-v7a")
+    libgdxNatives("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-arm64-v8a")
+    libgdxNatives("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-x86")
+    libgdxNatives("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-x86_64")
+}
+val stageLibgdxNatives = tasks.register("stageLibgdxNatives") {
+    val outDir = layout.buildDirectory.dir("libgdx-jni")
+    inputs.files(libgdxNatives)
+    outputs.dir(outDir)
+    doLast {
+        val root = outDir.get().asFile
+        root.deleteRecursively()
+        libgdxNatives.files.forEach { archive ->
+            val abi = when {
+                "armeabi-v7a" in archive.name -> "armeabi-v7a"
+                "arm64-v8a" in archive.name -> "arm64-v8a"
+                "x86_64" in archive.name -> "x86_64"
+                "x86" in archive.name -> "x86"
+                else -> error("Unknown libGDX native classifier: ${archive.name}")
+            }
+            copy {
+                from(zipTree(archive)) { include("*.so") }
+                into(File(root, abi))
+            }
+        }
+    }
+}
+
 // --- kotlin-stdlib asset (on-device Kotlin-compiler spike) ---------------------------------------
 // The discovery spike (KotlinCompilerArtSpikeTest) runs K2JVMCompiler on device and needs the Kotlin
 // stdlib on its compile -classpath. The app's own stdlib is *dexed* (not a usable .jar at runtime), so we
@@ -442,6 +477,7 @@ android {
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("compose-drawables-asset").get().asFile)
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("r8-dex-asset").get().asFile)
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("applog-runtime-asset").get().asFile)
+    sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("libgdx-jni").get().asFile)
     sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("vm-spike-asset").get().asFile)
     sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("moshi-libs-asset").get().asFile)
 
@@ -657,7 +693,7 @@ val fetchAndroidBuildTools = tasks.register("fetchAndroidBuildTools") {
 // Run before anything AGP does, so the freshly-fetched lib*.so are on disk when the native-lib merge runs,
 // and the staged kotlin-stdlib.jar asset is present when the asset merge runs.
 tasks.named("preBuild").configure {
-    dependsOn(fetchAndroidBuildTools, bundleKotlinStdlibAsset, bundleKotlincResourcesAsset, bundleComposeRuntimeAsset, bundleComposeFontsAsset, bundleComposeStringAsset, bundleAgentUiComposeStringAsset, bundleVcsUiComposeStringAsset, bundleComposeDrawablesAsset, bundleR8DexAsset, bundleAppLogRuntimeAsset, bundleVmSpikeComposeRuntimeAsset, bundleVmSpikeMaterial3Asset, bundleVmStackAsset, bundleMoshiLibsAsset, bundleAwtFixtureAsset)
+    dependsOn(fetchAndroidBuildTools, stageLibgdxNatives, bundleKotlinStdlibAsset, bundleKotlincResourcesAsset, bundleComposeRuntimeAsset, bundleComposeFontsAsset, bundleComposeStringAsset, bundleAgentUiComposeStringAsset, bundleVcsUiComposeStringAsset, bundleComposeDrawablesAsset, bundleR8DexAsset, bundleAppLogRuntimeAsset, bundleVmSpikeComposeRuntimeAsset, bundleVmSpikeMaterial3Asset, bundleVmStackAsset, bundleMoshiLibsAsset, bundleAwtFixtureAsset)
 }
 
 // Same Android packaging gap as the fonts above, for the i18n string resources. :ide-ui's
@@ -779,6 +815,8 @@ configurations.configureEach {
 
 dependencies {
     implementation(project(":ide-ui"))
+    implementation(libs.libgdx.core)
+    implementation(libs.libgdx.backend.android)
 
     // The real on-device IDE engine, shared with :ide-desktop. ide-core pulls in lang-jdt (jdt.core +
     // ecj) transitively along with the Eclipse platform runtime jars (org.eclipse.core.runtime, etc.).

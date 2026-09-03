@@ -200,6 +200,8 @@ object AndroidIde {
         )
         // Installs + launches a built APK (the android Run) via the system package installer.
         val apkInstaller = ApkInstallerImpl(context)
+        val libGdxPreviewLauncher =
+            dev.ide.android.libgdx.AndroidLibGdxPreviewLauncher(context.applicationContext)
         // The debug-only in-app log bridge: extract the bundled runtime jar (woven into debug builds); the
         // bridge inside the built app binds the IDE's exported AppLogSinkService over Binder and pushes its
         // logs to the IDE's Logcat tab. Best-effort — a missing/failed asset must NEVER stop the IDE from
@@ -334,6 +336,7 @@ object AndroidIde {
             programInterpreter = programInterpreter,
             deviceApiLevel = Build.VERSION.SDK_INT,
             apkInstaller = apkInstaller,
+            libGdxPreviewLauncher = libGdxPreviewLauncher,
             appLogRuntimeJar = appLogRuntimeJar?.toPath(),
             appLogChannel = appLogChannel,
             appLogEnabledProvider = appLogEnabledProvider,

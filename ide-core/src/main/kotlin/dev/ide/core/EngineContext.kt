@@ -77,6 +77,9 @@ internal interface EngineContext {
     /** On-device APK install+launch port (the Android Run), or null on the desktop. */
     val apkInstaller: ApkInstaller?
 
+    /** Embedded libGDX Activity launcher, present on the Android host. */
+    val libGdxPreviewLauncher: LibGdxPreviewLauncher?
+
     /** On-device app-log channel (receives a running debug app's forwarded logs), or null on the desktop. */
     val appLogChannel: AppLogChannel?
 

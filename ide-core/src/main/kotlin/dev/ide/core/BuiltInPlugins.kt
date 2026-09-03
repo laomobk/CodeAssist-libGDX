@@ -26,6 +26,7 @@ import dev.ide.core.analysis.PackageMismatchAnalyzer
 import dev.ide.core.analysis.PluginManifestAnalyzer
 import dev.ide.core.completion.BufferWordsContributor
 import dev.ide.core.completion.CompletionStats
+import dev.ide.core.completion.GlslCompletionContributor
 import dev.ide.core.completion.PluginManifestCompletion
 import dev.ide.core.completion.PostfixContributor
 import dev.ide.core.completion.UserLiveTemplateContributor
@@ -50,6 +51,8 @@ import dev.ide.core.templates.JavaConsoleAppTemplate
 import dev.ide.core.templates.JavaLibraryTemplate
 import dev.ide.core.templates.KotlinConsoleAppTemplate
 import dev.ide.core.templates.KotlinLibraryTemplate
+import dev.ide.core.templates.LibGdxModuleType
+import dev.ide.core.templates.LibGdxProjectTemplate
 import dev.ide.core.templates.NotesSampleTemplate
 import dev.ide.core.templates.SwingAppTemplate
 import dev.ide.core.templates.SwingCanvasTemplate
@@ -163,6 +166,7 @@ object BuiltInPlugins {
         BuiltInPlugin(JavaPsiLanguagePlugin()),
         BuiltInPlugin(XmlLanguagePlugin()),
         BuiltInPlugin(KotlinLanguagePlugin()),
+        BuiltInPlugin(GlslLanguagePlugin()),
         BuiltInPlugin(JavaSupportPlugin()),
         BuiltInPlugin(KotlinSupportPlugin()),
         BuiltInPlugin(KspSupportPlugin(env)),
@@ -299,12 +303,32 @@ private class JavaSupportPlugin : Plugin {
     override fun register(reg: PluginRegistration) {
         reg.contributeVia { ext, pid ->
             ModuleTypeRegistry(ext).register(JavaLibModuleType, pid)
+            ModuleTypeRegistry(ext).register(LibGdxModuleType, pid)
             val templates = ProjectTemplateRegistry(ext)
             templates.register(JavaConsoleAppTemplate, pid)
             templates.register(JavaLibraryTemplate, pid)
             templates.register(SwingAppTemplate, pid)
             templates.register(SwingCanvasTemplate, pid)
+            templates.register(LibGdxProjectTemplate, pid)
         }
+    }
+}
+
+/** GLSL is lexed by the UI profile and completed from a compact built-in vocabulary. */
+private class GlslLanguagePlugin : Plugin {
+    override val manifest = PluginManifest(
+        id = "glsl-language",
+        name = "GLSL Language",
+        description = "GLSL shader file types, keywords, built-ins, and completion.",
+    )
+
+    override fun register(reg: PluginRegistration) {
+        val language = LanguageId("glsl")
+        reg.register(FILE_TYPE_EP, FileTypeMapping(listOf(".glsl", ".vert", ".frag", ".vs", ".fs"), language))
+        reg.register(
+            COMPLETION_CONTRIBUTOR_EP,
+            CompletionContribution(GlslCompletionContributor, languages = setOf(language)),
+        )
     }
 }
 

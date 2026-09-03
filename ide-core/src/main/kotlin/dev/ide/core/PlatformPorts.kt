@@ -7,6 +7,7 @@ import dev.ide.lang.kotlin.compile.KotlinPluginLoader
 import dev.ide.platform.ServiceKey
 import dev.ide.preview.impl.CustomViewRuntime
 import dev.ide.preview.impl.RealViewRuntime
+import java.nio.file.Path
 
 /**
  * APPLICATION-scoped service keys for the desktop-vs-android platform ports (host capabilities the engine
@@ -33,6 +34,19 @@ internal val KOTLIN_PLUGIN_LOADER = ServiceKey<KotlinPluginLoader>("platform.kot
 internal val KOTLIN_COMPILER_BACKEND = ServiceKey<KotlinCompilerBackend>("platform.kotlinCompilerBackend")
 internal val ANDROID_DEVICE_TOOLS = ServiceKey<AndroidDeviceTools>("platform.androidDeviceTools")
 internal val REAL_VIEW_RUNTIME = ServiceKey<RealViewRuntime>("platform.realViewRuntime")
+internal val LIBGDX_PREVIEW_LAUNCHER = ServiceKey<LibGdxPreviewLauncher>("platform.libgdxPreviewLauncher")
+
+/** Compiled JVM bytecode handed to the host's embedded libGDX runtime. */
+data class LibGdxPreviewRequest(
+    val classpath: List<Path>,
+    val mainClass: String,
+    val assetsDir: Path,
+)
+
+/** On-device host for a libGDX game preview. No user APK or dynamic user dex is produced. */
+fun interface LibGdxPreviewLauncher {
+    suspend fun launch(request: LibGdxPreviewRequest)
+}
 
 /** Opt-in usage analytics. Registered by the launcher (`:ide-android`) rather than [ProjectManager], because
  *  it is built from the baked-in transport config *after* the manager exists — hence public, unlike the ports

@@ -112,6 +112,8 @@ class ProjectManager private constructor(
     private val programInterpreter: ProgramInterpreter? = null,
     /** On-device APK installer (from :ide-android) so the android Run works in every opened project. */
     private val apkInstaller: ApkInstaller? = null,
+    /** Embedded libGDX runtime used by java-libgdx modules; null on desktop. */
+    private val libGdxPreviewLauncher: LibGdxPreviewLauncher? = null,
     /** On-device app-log channel (from :ide-android): receives a running debug app's forwarded logs for the
      *  Logcat console tab, in every opened project. Null on desktop. */
     private val appLogChannel: AppLogChannel? = null,
@@ -156,6 +158,7 @@ class ProjectManager private constructor(
         androidTools?.let { t -> env.container.registerServiceIfAbsent(ANDROID_DEVICE_TOOLS) { t } }
         programInterpreter?.let { p -> env.container.registerServiceIfAbsent(PROGRAM_INTERPRETER) { p } }
         apkInstaller?.let { i -> env.container.registerServiceIfAbsent(APK_INSTALLER) { i } }
+        libGdxPreviewLauncher?.let { l -> env.container.registerServiceIfAbsent(LIBGDX_PREVIEW_LAUNCHER) { l } }
         appLogChannel?.let { c -> env.container.registerServiceIfAbsent(APP_LOG_CHANNEL) { c } }
         customViewRuntime?.let { c -> env.container.registerServiceIfAbsent(CUSTOM_VIEW_RUNTIME) { c } }
         kotlinPluginLoader?.let { l -> env.container.registerServiceIfAbsent(KOTLIN_PLUGIN_LOADER) { l } }
@@ -779,6 +782,8 @@ class ProjectManager private constructor(
             deviceApiLevel: Int = 21,
             /** The host's APK installer, so the android Run (build + install + launch) works on device. */
             apkInstaller: ApkInstaller? = null,
+            /** Launches compiled user bytecode inside the host's libGDX Activity. */
+            libGdxPreviewLauncher: LibGdxPreviewLauncher? = null,
             /** The host's live custom-view runtime, so the layout preview renders custom views in every project. */
             customViewRuntime: dev.ide.preview.impl.CustomViewRuntime? = null,
             /** The host's real-view layout renderer (layoutlib-on-device), so the preview can render real views. */
@@ -832,6 +837,7 @@ class ProjectManager private constructor(
                 legacyDataDirs = legacyDataDirs,
                 programInterpreter = programInterpreter,
                 apkInstaller = apkInstaller,
+                libGdxPreviewLauncher = libGdxPreviewLauncher,
                 appLogChannel = appLogChannel,
                 customViewRuntime = customViewRuntime,
                 realViewRuntime = realViewRuntime,

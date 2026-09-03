@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.kotlinx.coroutines.test)
+    // Exercises the editor against the real libGDX API jar; product runtime ownership stays in :ide-android.
+    testImplementation(libs.libgdx.core)
     // The Supabase store client, for the engine→UI feed mapping test.
     testImplementation(project(":store-impl"))
     // Opt-in regression suites (`regressionTest`): shared benchmark/baseline harness.
