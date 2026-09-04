@@ -490,15 +490,30 @@ internal val MinListHeight = 64.dp
 internal val MaxListHeight = 560.dp
 
 /**
- * Positions the completion popup just below the caret line and clamps it horizontally so it never
- * overflows the window. [anchorX]/[lineBottom] are in the editor pane's coordinate space.
+ * Positions the completion popup above or below the caret line and clamps it to the editor pane/window.
+ * [anchorX], [lineTop], and [lineBottom] are in the editor pane's coordinate space.
  */
 internal class CompletionPopupPositionProvider(
     private val anchorX: Int,
+    private val lineTop: Int,
     private val lineBottom: Int,
     private val gapPx: Int,
     private val marginPx: Int,
+    private val paneTop: Int,
+    private val paneBottom: Int,
+    private val growUpward: Boolean,
 ) : PopupPositionProvider {
+    /** Legacy below-only placement used by code-actions and navigation menus. */
+    constructor(anchorX: Int, lineBottom: Int, gapPx: Int, marginPx: Int) : this(
+        anchorX = anchorX,
+        lineTop = lineBottom,
+        lineBottom = lineBottom,
+        gapPx = gapPx,
+        marginPx = marginPx,
+        paneTop = 0,
+        paneBottom = Int.MAX_VALUE,
+        growUpward = false,
+    )
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -507,7 +522,15 @@ internal class CompletionPopupPositionProvider(
     ): IntOffset {
         val maxX = (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(marginPx)
         val x = (anchorBounds.left + anchorX).coerceIn(marginPx, maxX)
-        val y = anchorBounds.top + lineBottom + gapPx
+        val legacyBounds = paneTop == 0 && paneBottom == Int.MAX_VALUE
+        val top = if (legacyBounds) 0 else paneTop
+        val bottom = if (legacyBounds) windowSize.height else paneBottom
+        val lineTopAbs = anchorBounds.top + lineTop
+        val lineBottomAbs = anchorBounds.top + lineBottom
+        val preferredY = if (growUpward) lineTopAbs - popupContentSize.height - gapPx else lineBottomAbs + gapPx
+        val minY = (top + marginPx).coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0)
+        val maxY = (bottom - popupContentSize.height - marginPx).coerceAtLeast(0)
+        val y = preferredY.coerceIn(minY.coerceAtMost(maxY), maxY.coerceAtLeast(minY))
         return IntOffset(x, y)
     }
 }

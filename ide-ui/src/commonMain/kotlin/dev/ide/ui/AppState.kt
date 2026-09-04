@@ -466,10 +466,14 @@ class IdeUiState(
     var semanticHighlightingEnabled by mutableStateOf(true)
     /** Code folding (imports, bodies, block comments). */
     var codeFoldingEnabled by mutableStateOf(true)
-    /** Pop completion up automatically while typing (off = explicit Ctrl-Space only). */
+    /** Pop completion up automatically while typing (off = explicit Complete/Ctrl-Space or member-access '.' triggers). */
     var completionAutoPopup by mutableStateOf(true)
+    /** Completion popup density: regular or compact. */
+    var completionStyle by mutableStateOf("regular")
     /** Debounce (ms) after a keystroke before the completion popup requests suggestions. */
     var completionDelayMs by mutableStateOf(110)
+    /** Touch symbol bar layout: one or two rows. */
+    var symbolBarRows by mutableIntStateOf(1)
     /** Run diagnostics as you type (off = the highlighting daemon skips the diagnostics pass). */
     var analyzeOnTheFly by mutableStateOf(true)
     /** Quiet period (ms) after the last edit before the highlighting daemon runs. */
@@ -542,7 +546,9 @@ class IdeUiState(
         semanticHighlightingEnabled = s.semanticHighlighting
         codeFoldingEnabled = s.codeFolding
         completionAutoPopup = s.completionAutoPopup
+        completionStyle = s.completionStyle
         completionDelayMs = s.completionDelayMs
+        symbolBarRows = s.symbolBarRows.coerceIn(1, 2)
         analyzeOnTheFly = s.analyzeOnTheFly
         reparseDelayMs = s.reparseDelayMs
         wordWrapEnabled = s.wordWrap

@@ -8,13 +8,13 @@ package dev.ide.core.customize
 object DefaultCustomizations {
 
     /**
-     * The default keyboard symbol-bar keys: the fixed (pinned) action group — Tab, line comment, move/duplicate
+     * The default keyboard symbol-bar keys: the fixed (pinned) action group — Tab, completion, move/duplicate
      * line — followed by the scrolling coding symbols. Mirrors the bar's historic layout, but every key is now
      * a customizable entry (was hardcoded chrome). "Reset to defaults" restores exactly this.
      */
     val SYMBOLS: List<SymbolKeyDef> = buildList {
         add(SymbolKeyDef.action("Tab", SymbolActions.TAB))
-        add(SymbolKeyDef.action("//", SymbolActions.COMMENT))
+        add(SymbolKeyDef.action("Complete", SymbolActions.COMPLETION))
         add(SymbolKeyDef.action("Move line up", SymbolActions.MOVE_LINE_UP))
         add(SymbolKeyDef.action("Move line down", SymbolActions.MOVE_LINE_DOWN))
         add(SymbolKeyDef.action("Duplicate line", SymbolActions.DUPLICATE_LINE))

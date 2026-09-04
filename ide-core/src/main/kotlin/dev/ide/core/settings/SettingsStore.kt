@@ -40,7 +40,9 @@ class SettingsStore(
             twoAxisScroll = bool("editor.twoAxisScroll", d.twoAxisScroll),
             pinchZoom = bool("editor.pinchZoom", d.pinchZoom),
             softKeyboardSuggestions = bool("editor.softKeyboardSuggestions", d.softKeyboardSuggestions),
+            symbolBarRows = int("editor.symbolBarRows", d.symbolBarRows).coerceIn(1, 2),
             completionAutoPopup = bool("completion.autoPopup", d.completionAutoPopup),
+            completionStyle = oneOf("completion.style", d.completionStyle, IdeSettings.COMPLETION_STYLE_REGULAR, IdeSettings.COMPLETION_STYLE_COMPACT),
             completionDelayMs = int("completion.delayMs", d.completionDelayMs).coerceIn(MIN_COMPLETION_DELAY_MS, MAX_COMPLETION_DELAY_MS),
             completionMaxItems = int("completion.maxItems", d.completionMaxItems).coerceIn(MIN_COMPLETION_MAX_ITEMS, MAX_COMPLETION_MAX_ITEMS),
             postfixTemplates = bool("completion.postfixTemplates", d.postfixTemplates),
@@ -140,7 +142,9 @@ class SettingsStore(
         put("editor.twoAxisScroll", s.twoAxisScroll.toString())
         put("editor.pinchZoom", s.pinchZoom.toString())
         put("editor.softKeyboardSuggestions", s.softKeyboardSuggestions.toString())
+        put("editor.symbolBarRows", s.symbolBarRows.coerceIn(1, 2).toString())
         put("completion.autoPopup", s.completionAutoPopup.toString())
+        put("completion.style", s.completionStyle)
         put("completion.delayMs", s.completionDelayMs.toString())
         put("completion.maxItems", s.completionMaxItems.toString())
         put("completion.postfixTemplates", s.postfixTemplates.toString())

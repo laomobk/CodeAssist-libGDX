@@ -53,6 +53,8 @@ import dev.ide.ui.components.entrancePop
 import dev.ide.ui.theme.Ca
 import org.jetbrains.compose.resources.stringResource
 
+enum class CompletionPopupStyle { Regular, Compact }
+
 /**
  * The completion list (glass-thick): rows of [KindBadge] + a two-line column — the label (typed prefix bolded
  * in accent) on top, then a muted secondary line with the origin (package / declaring class) on the left and
@@ -70,6 +72,8 @@ fun CompletionList(
     maxListHeight: Dp = 296.dp,
     // Wide screens put the doc panel beside the list; narrow screens (no room) flip the popup to docs on demand.
     docsBeside: Boolean = true,
+    style: CompletionPopupStyle = CompletionPopupStyle.Regular,
+    growUpward: Boolean = false,
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(selectedIndex) {
@@ -81,8 +85,8 @@ fun CompletionList(
     if (docsBeside) {
         // Wide: the list with a doc panel to its right (IntelliJ-style).
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
-            CompletionListPanel(items, selectedIndex, prefix, width, maxListHeight, listState, onPick, onHover, onInfo = null)
-            if (doc != null) DocPanel(selected, doc, maxListHeight, Modifier.width(320.dp))
+            CompletionListPanel(items, selectedIndex, prefix, width, maxListHeight, listState, onPick, onHover, onInfo = null, style = style, growUpward = growUpward)
+            if (doc != null) DocPanel(selected, doc, maxListHeight, Modifier.width(320.dp), style = style)
         }
     } else {
         // Narrow: a side panel would squish, so flip the SAME popup between the list and full-width docs. The
@@ -91,11 +95,13 @@ fun CompletionList(
         var showingDocs by remember { mutableStateOf(false) }
         LaunchedEffect(selectedIndex) { showingDocs = false }
         if (showingDocs && doc != null) {
-            DocPanel(selected, doc, maxListHeight, Modifier.width(width), onBack = { showingDocs = false })
+            DocPanel(selected, doc, maxListHeight, Modifier.width(width), style = style, onBack = { showingDocs = false })
         } else {
             CompletionListPanel(
                 items, selectedIndex, prefix, width, maxListHeight, listState, onPick, onHover,
                 onInfo = if (doc != null) ({ showingDocs = true }) else null,
+                style = style,
+                growUpward = growUpward,
             )
         }
     }
@@ -114,8 +120,11 @@ private fun CompletionListPanel(
     onPick: (UiCompletionItem) -> Unit,
     onHover: (Int) -> Unit,
     onInfo: (() -> Unit)?,
+    style: CompletionPopupStyle,
+    growUpward: Boolean,
 ) {
-    val shape = RoundedCornerShape(Ca.radius.md)
+    val compact = style == CompletionPopupStyle.Compact
+    val shape = if (compact) RoundedCornerShape(0.dp) else RoundedCornerShape(Ca.radius.md)
     Column(
         Modifier
             .width(width)
@@ -132,13 +141,14 @@ private fun CompletionListPanel(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             )
         } else {
-            LazyColumn(state = listState, modifier = Modifier.heightIn(max = maxListHeight)) {
+            LazyColumn(state = listState, reverseLayout = growUpward, modifier = Modifier.heightIn(max = maxListHeight)) {
                 itemsIndexed(items) { index, item ->
                     val sel = index == selectedIndex
                     CompletionRow(
                         item, prefix, sel,
                         onPick = { onPick(item) }, onHover = { onHover(index) },
                         onInfo = if (sel) onInfo else null,
+                        style = style,
                     )
                 }
             }
@@ -149,16 +159,17 @@ private fun CompletionListPanel(
 /** The documentation panel: the selected item's signature (with a ‹ Back when [onBack] is set, i.e. the
  *  narrow flip view) over its scrollable javadoc. */
 @Composable
-private fun DocPanel(item: UiCompletionItem, doc: String, maxHeight: Dp, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
+private fun DocPanel(item: UiCompletionItem, doc: String, maxHeight: Dp, modifier: Modifier = Modifier, style: CompletionPopupStyle = CompletionPopupStyle.Regular, onBack: (() -> Unit)? = null) {
+    val shape = if (style == CompletionPopupStyle.Compact) RoundedCornerShape(0.dp) else RoundedCornerShape(Ca.radius.md)
     Column(
         modifier
             .heightIn(max = maxHeight)
-            .background(Ide.colors.glassThick, RoundedCornerShape(Ca.radius.md))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(Ca.radius.md)),
+            .background(Ide.colors.glassThick, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape),
     ) {
         // Fixed header: optional Back + the signature, so they stay put while the doc body scrolls.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().padding(horizontal = if (style == CompletionPopupStyle.Compact) 6.dp else 12.dp, vertical = if (style == CompletionPopupStyle.Compact) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -195,27 +206,42 @@ private fun CompletionRow(
     onHover: () -> Unit,
     // Non-null on the selected row when docs are reachable via flip (narrow screens): shows a tappable ⓘ.
     onInfo: (() -> Unit)? = null,
+    style: CompletionPopupStyle = CompletionPopupStyle.Regular,
 ) {
     // Row text styles: a notch smaller than the editor's code style, with tight line height so the two stacked
     // lines stay compact. Kept local so the editor's own Ide.type.code is untouched.
-    val labelStyle = Ide.type.code.copy(fontSize = 12.sp, lineHeight = 15.sp)
+    val compact = style == CompletionPopupStyle.Compact
+    val labelStyle = Ide.type.code.copy(fontSize = if (compact) 11.sp else 12.sp, lineHeight = if (compact) 14.sp else 15.sp)
     val detailStyle = Ide.type.codeSmall.copy(fontSize = 11.sp, lineHeight = 13.sp)
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 40.dp)
+            .heightIn(min = if (compact) 28.dp else 40.dp)
             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
             .clickable(onClick = onPick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = if (compact) 5.dp else 12.dp, vertical = if (compact) 1.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp),
     ) {
         KindBadge(item.kind)
         // Two stacked lines: the name on top, then a muted secondary line carrying the ORIGIN (a top-level
         // callable's / type's package, or a member's declaring class) on the LEFT and the return/value TYPE on
         // the RIGHT. IntelliJ keeps both on one line, but a narrow popup can't fit that, so they stack under the
         // name. The second line is dropped when neither is present (e.g. a bare local with no inferred type).
-        Column(Modifier.weight(1f)) {
+        if (compact) {
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    highlightMatch(item.label, prefix),
+                    style = labelStyle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                val compactDetail = listOfNotNull(item.container, item.detail).joinToString("  ")
+                if (compactDetail.isNotEmpty()) Text(compactDetail, style = detailStyle, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else Column(Modifier.weight(1f)) {
             Text(
                 highlightMatch(item.label, prefix),
                 style = labelStyle,

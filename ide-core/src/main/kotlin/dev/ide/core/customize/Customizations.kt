@@ -41,6 +41,7 @@ data class SymbolKeyDef(
  */
 object SymbolActions {
     const val TAB = "tab"
+    const val COMPLETION = "completion"
     const val COMMENT = "comment"
     const val MOVE_LINE_UP = "moveLineUp"
     const val MOVE_LINE_DOWN = "moveLineDown"
@@ -48,7 +49,7 @@ object SymbolActions {
     const val NEXT_PROBLEM = "nextProblem"
 
     /** Every action id, for the editor's "add an action key" picker. */
-    val ALL: List<String> = listOf(TAB, COMMENT, MOVE_LINE_UP, MOVE_LINE_DOWN, DUPLICATE_LINE, NEXT_PROBLEM)
+    val ALL: List<String> = listOf(TAB, COMPLETION, COMMENT, MOVE_LINE_UP, MOVE_LINE_DOWN, DUPLICATE_LINE, NEXT_PROBLEM)
 }
 
 /**

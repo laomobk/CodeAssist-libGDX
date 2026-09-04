@@ -186,12 +186,28 @@ object BuiltInSettingsPages {
             SettingControl.Toggle("twoAxisScroll", "Two-axis scrolling", "Drag in any direction to scroll both axes at once (touch)", default = d.twoAxisScroll, group = "Gestures"),
             SettingControl.Toggle("pinchZoom", "Pinch to zoom", "Pinch with two fingers to change the code font size", default = d.pinchZoom, group = "Gestures"),
             SettingControl.Toggle("softKeyboardSuggestions", "Keyboard suggestions", "Let the soft keyboard autocorrect, suggest, and auto-space (a normal keyboard). Turn off for raw code input, so a typed '.' doesn't get an auto-inserted space, at the cost of the suggestion strip.", default = d.softKeyboardSuggestions, group = "Keyboard"),
+            SettingControl.Choice(
+                "symbolBarRows", "Symbol bar rows", "Choose one or two rows for the touch symbol bar.",
+                default = d.symbolBarRows.toString(),
+                options = listOf(
+                    SettingControl.Choice.Option("1", "One row"),
+                    SettingControl.Choice.Option("2", "Two rows"),
+                ),
+            ),
         )
     }
 
     private val completion = page(COMPLETION, "Code Completion", "sparkle", 20) {
         listOf(
-            SettingControl.Toggle("autoPopup", "Auto-show suggestions", "Pop the list up while typing (off = Ctrl-Space only)", default = d.completionAutoPopup),
+            SettingControl.Toggle("autoPopup", "Auto-show suggestions", "Pop the list up while typing (off = the Complete key, Ctrl-Space, or member-access '.' only)", default = d.completionAutoPopup),
+            SettingControl.Choice(
+                "style", "Suggestion popup style", "Regular keeps the full two-line popup; Compact uses a denser one-line list.",
+                default = d.completionStyle,
+                options = listOf(
+                    SettingControl.Choice.Option(IdeSettings.COMPLETION_STYLE_REGULAR, "Regular"),
+                    SettingControl.Choice.Option(IdeSettings.COMPLETION_STYLE_COMPACT, "Compact"),
+                ),
+            ),
             SettingControl.Toggle("postfixTemplates", "Postfix templates", "Offer .val / .if / .notnull / … completions", default = d.postfixTemplates),
             SettingControl.Toggle("wordCompletion", "Word completion", "Offer words already in the file as a fallback", default = d.wordCompletion),
             SettingControl.IntSlider("delayMs", "Auto-popup delay", "How long after a keystroke the list appears", default = d.completionDelayMs, min = IdeSettings.MIN_COMPLETION_DELAY_MS, max = IdeSettings.MAX_COMPLETION_DELAY_MS, step = 10, unit = "ms", advanced = true),

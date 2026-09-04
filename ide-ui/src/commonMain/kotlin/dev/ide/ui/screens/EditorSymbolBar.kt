@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -57,32 +59,43 @@ internal fun EditorSymbolBar(
     showDiagnosticJump: Boolean = false,
     /** Opens the Symbols & Macros editor. Null hides the trailing customize (gear) key. */
     onCustomize: (() -> Unit)? = null,
+    /** Number of visible rows. The toggle is kept in the trailing fixed group. */
+    rows: Int = 1,
+    /** Called by the trailing grid button to persist the row choice. */
+    onRowsChange: ((Int) -> Unit)? = null,
 ) {
     val separator = MaterialTheme.colorScheme.outlineVariant // captured for the draw lambda (can't read the theme inside drawBehind)
     val pinned = symbols.filter { it.pinned }
     val scrolling = symbols.filter { !it.pinned }
+    val rowCount = rows.coerceIn(1, 2)
+    val rowHeight = if (rowCount == 2) 36.dp else 38.dp
     Row(
         modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(rowHeight * rowCount.toFloat())
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .drawBehind { // hairline separating the bar from the editor above
                 drawLine(separator, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 1f)
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Fixed (pinned) group: Tab / comment / line ops by default, but fully user-customizable.
-        for (key in pinned) BarKey(key, onSymbol, onAction)
-        // Jump to the next diagnostic — contextual (shown only while the file has any), so it isn't a stored key.
-        if (showDiagnosticJump) IconKey(CaIcons.warning, stringResource(Res.string.symbolbar_next_problem), onClick = { onAction(CustomizationActions.NEXT_PROBLEM) })
-        if (pinned.isNotEmpty() || showDiagnosticJump) {
-            Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
-        }
-        Row(
-            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            for (key in scrolling) BarKey(key, onSymbol, onAction)
+        if (rowCount == 1) {
+            // Fixed (pinned) group: Tab / completion / line ops by default, but fully user-customizable.
+            for (key in pinned) BarKey(key, onSymbol, onAction)
+            if (showDiagnosticJump) IconKey(CaIcons.warning, stringResource(Res.string.symbolbar_next_problem), onClick = { onAction(CustomizationActions.NEXT_PROBLEM) })
+            if (pinned.isNotEmpty() || showDiagnosticJump) Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                for (key in scrolling) BarKey(key, onSymbol, onAction)
+            }
+        } else {
+            SymbolKeyGrid(
+                pinned = pinned + if (showDiagnosticJump) listOf(UiSymbolKey("Next problem", "", pinned = true, action = CustomizationActions.NEXT_PROBLEM)) else emptyList(),
+                scrolling = scrolling,
+                rowHeight = rowHeight,
+                onSymbol = onSymbol,
+                onAction = onAction,
+                modifier = Modifier.weight(1f),
+            )
         }
         // Trailing customize key: opens the Symbols & Macros editor. Pinned (not in the scroll) so it's always
         // reachable. Opening it dismisses the keyboard (the editor is a full sheet) — intended.
@@ -90,10 +103,45 @@ internal fun EditorSymbolBar(
             Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
             IconKey(CaIcons.gear, stringResource(Res.string.symbolbar_customize), onClick = onCustomize)
         }
+        if (onRowsChange != null) {
+            Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
+            IconKey(
+                if (rowCount == 1) CaIcons.expand else CaIcons.collapse,
+                if (rowCount == 1) "Expand symbol bar" else "Collapse symbol bar",
+                onClick = { onRowsChange(if (rowCount == 1) 2 else 1) },
+            )
+        }
     }
 }
 
-/** Renders one bar key: an action key as its mapped icon (or an accent text label — Tab, `//`), a text key as
+@Composable
+private fun SymbolKeyGrid(
+    pinned: List<UiSymbolKey>,
+    scrolling: List<UiSymbolKey>,
+    rowHeight: androidx.compose.ui.unit.Dp,
+    onSymbol: (String) -> Unit,
+    onAction: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    fun keyColumns(keys: List<UiSymbolKey>): List<List<UiSymbolKey>> = keys.chunked(2)
+    @Composable fun Columns(keys: List<UiSymbolKey>) {
+        for (column in keyColumns(keys)) {
+            Column(Modifier.height(rowHeight * 2f)) {
+                for (key in column) {
+                    Box(Modifier.height(rowHeight)) { BarKey(key, onSymbol, onAction) }
+                }
+                if (column.size == 1) Spacer(Modifier.height(rowHeight))
+            }
+        }
+    }
+    Row(modifier.fillMaxHeight()) {
+        Columns(pinned)
+        if (pinned.isNotEmpty()) Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
+        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) { Columns(scrolling) }
+    }
+}
+
+/** Renders one bar key: an action key as its mapped icon (or an accent text label — Tab / unknown ids), a text key as
  *  its label. The label is what shows; a text key commits [UiSymbolKey.insert]. */
 @Composable
 private fun BarKey(key: UiSymbolKey, onSymbol: (String) -> Unit, onAction: (String) -> Unit) {
@@ -107,8 +155,9 @@ private fun BarKey(key: UiSymbolKey, onSymbol: (String) -> Unit, onAction: (Stri
     }
 }
 
-/** The icon for an action key, or null to render its label as text (Tab, the `//` comment key, unknown ids). */
+/** The icon for an action key, or null to render its label as text (Tab, unknown ids). */
 private fun symbolActionIcon(action: String): ImageVector? = when (action) {
+    CustomizationActions.COMPLETION -> CaIcons.sparkle
     CustomizationActions.MOVE_LINE_UP -> CaIcons.chevronUp
     CustomizationActions.MOVE_LINE_DOWN -> CaIcons.chevronDown
     CustomizationActions.DUPLICATE_LINE -> CaIcons.copy
@@ -120,7 +169,7 @@ private fun symbolActionIcon(action: String): ImageVector? = when (action) {
  *  when the host supplies none, and the standalone default for previews/snapshots. */
 internal val DEFAULT_SYMBOL_KEYS: List<UiSymbolKey> = buildList {
     add(UiSymbolKey("Tab", "", pinned = true, action = CustomizationActions.TAB))
-    add(UiSymbolKey("//", "", pinned = true, action = CustomizationActions.COMMENT))
+    add(UiSymbolKey("Complete", "", pinned = true, action = CustomizationActions.COMPLETION))
     add(UiSymbolKey("Move line up", "", pinned = true, action = CustomizationActions.MOVE_LINE_UP))
     add(UiSymbolKey("Move line down", "", pinned = true, action = CustomizationActions.MOVE_LINE_DOWN))
     add(UiSymbolKey("Duplicate line", "", pinned = true, action = CustomizationActions.DUPLICATE_LINE))

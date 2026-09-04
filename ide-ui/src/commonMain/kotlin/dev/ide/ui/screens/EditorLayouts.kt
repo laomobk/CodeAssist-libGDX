@@ -172,6 +172,7 @@ private fun dispatchSymbolAction(state: IdeUiState, action: String) {
     val s = state.active?.session ?: return
     when (action) {
         CustomizationActions.TAB -> if (s.acceptCompletionIfShowing?.invoke() != true) s.indent()
+        CustomizationActions.COMPLETION -> s.requestCompletion?.invoke()
         CustomizationActions.COMMENT -> s.toggleComment()
         CustomizationActions.MOVE_LINE_UP -> s.moveLines(-1)
         CustomizationActions.MOVE_LINE_DOWN -> s.moveLines(1)
@@ -465,6 +466,11 @@ internal fun CompactLayout(
                             onSymbol = { sym -> state.active?.session?.commitText(sym) },
                             onAction = { id -> dispatchSymbolAction(state, id) },
                             showDiagnosticJump = state.active?.session?.diagnostics?.isNotEmpty() == true,
+                            rows = state.symbolBarRows,
+                            onRowsChange = { newRows ->
+                                state.backend.settings.setSetting("editor", "symbolBarRows", newRows.toString())
+                                state.applySettings(state.backend.settings.settings())
+                            },
                             // No gear here — the Symbols & Macros editor lives in Settings ▸ Symbols & Macros.
                         )
                     }

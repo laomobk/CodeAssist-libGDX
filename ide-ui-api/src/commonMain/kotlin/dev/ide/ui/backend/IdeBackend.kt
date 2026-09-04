@@ -1762,10 +1762,12 @@ data class UiSettings(
     val semanticHighlighting: Boolean = true,
     val codeFolding: Boolean = true,
     val completionAutoPopup: Boolean = true,
+    val completionStyle: String = "regular",
     val completionDelayMs: Int = 110,
     val completionMaxItems: Int = 200,
     val postfixTemplates: Boolean = true,
     val wordCompletion: Boolean = true,
+    val symbolBarRows: Int = 1,
     val analyzeOnTheFly: Boolean = true,
     val reparseDelayMs: Int = 300,
     /** Soft-wrap long lines at the viewport edge (off = one row per line + horizontal scroll). */

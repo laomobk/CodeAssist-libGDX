@@ -1323,12 +1323,13 @@ data class UiMacro(
  *  render/pick action keys and the layout can dispatch them without depending on ide-core. */
 object CustomizationActions {
     const val TAB = "tab"
+    const val COMPLETION = "completion"
     const val COMMENT = "comment"
     const val MOVE_LINE_UP = "moveLineUp"
     const val MOVE_LINE_DOWN = "moveLineDown"
     const val DUPLICATE_LINE = "duplicateLine"
     const val NEXT_PROBLEM = "nextProblem"
-    val ALL: List<String> = listOf(TAB, COMMENT, MOVE_LINE_UP, MOVE_LINE_DOWN, DUPLICATE_LINE, NEXT_PROBLEM)
+    val ALL: List<String> = listOf(TAB, COMPLETION, COMMENT, MOVE_LINE_UP, MOVE_LINE_DOWN, DUPLICATE_LINE, NEXT_PROBLEM)
 }
 
 /**

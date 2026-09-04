@@ -122,6 +122,8 @@ fun CodeEditor(
     completionAutoPopup: Boolean = true,
     /** Debounce (ms) before an auto-popup completion request (Settings → Completion → Advanced). */
     completionDelayMs: Int = 110,
+    /** Completion popup density: "regular" or "compact". */
+    completionStyle: String = "regular",
     /**
      * Scroll both axes at once with a single touch drag (Settings → Editor). Off = the classic
      * orientation-locked drag (one axis per gesture). Touch-only, hence the default: `scrollable2D` has no
@@ -171,6 +173,7 @@ fun CodeEditor(
             onPreview,
             completionAutoPopup,
             completionDelayMs,
+            completionStyle,
             twoAxisScroll,
             pinchZoom,
             softKeyboardSuggestions,
@@ -201,6 +204,7 @@ private fun CodeEditorContent(
     onPreview: (variantId: String) -> Unit = {},
     completionAutoPopup: Boolean = true,
     completionDelayMs: Int = 110,
+    completionStyle: String = "regular",
     twoAxisScroll: Boolean = isMobilePlatform,
     pinchZoom: Boolean = true,
     softKeyboardSuggestions: Boolean = true,
@@ -520,16 +524,20 @@ private fun CodeEditorContent(
         // Soft-keyboard Tab (the touch symbol bar) accepts the highlighted completion when the popup is up,
         // mirroring the hardware-Tab path (onPreviewKey); the caller falls back to indent when this returns false.
         editorSession.acceptCompletionIfShowing = { if (showPopup) { accept(); true } else false }
+        editorSession.requestCompletion = { if (!readOnly && !largeFile) completion.reopen(immediate = true) }
         // Soft-keyboard Enter in a live template steps to the next field instead of inserting a newline — the IME
         // path (commitText "\n" / performEditorAction) bypasses onPreviewKey, so it consults this. Mirrors the
         // hardware-Enter template handling: accept a showing completion first (accept() then advances the
         // template), else step to the next stop. Returns false with no active template → the IME newlines as usual.
         editorSession.advanceTemplateOnEnter = {
-            val sn = snippet
-            if (sn == null) false
-            else {
-                if (showPopup) accept() else if (!sn.next()) snippet = null
-                true
+            if (showPopup) {
+                accept(); true
+            } else {
+                val sn = snippet
+                if (sn == null) false else {
+                    if (!sn.next()) snippet = null
+                    true
+                }
             }
         }
     }
@@ -564,10 +572,10 @@ private fun CodeEditorContent(
         // it, so the keystroke path skips a backend re-query); anything else ends the session.
         when (completionKeystroke(before, wordExtra)) {
             CompletionKeystroke.Reopen ->
-                if (completion.autoPopupEnabled) completion.reopen() else completion.dismiss()
+                if (completion.autoPopupEnabled || before == '.') completion.reopen() else completion.dismiss()
             CompletionKeystroke.Extend ->
                 if (!canNarrowLocally(completion.current, completion.dismissed, d.chars, caret, wordExtra)) {
-                    if (completion.autoPopupEnabled) completion.reopen() else completion.dismiss()
+                    if (completion.autoPopupEnabled || before == '.') completion.reopen() else completion.dismiss()
                 }
             CompletionKeystroke.Dismiss -> completion.dismiss()
         }
@@ -729,7 +737,10 @@ private fun CodeEditorContent(
             Key.Enter, Key.NumPadEnter -> {
                 // Shift+Enter = complete statement (IntelliJ's Smart Enter): finish the line then open a new one.
                 if (ev.isShiftPressed && !shortcut && !ev.isAltPressed) completeStatement()
-                else editorSession.commitText("\n")
+                else if (showPopup) accept()
+                else if (snippet != null) {
+                    if (!snippet!!.next()) snippet = null
+                } else editorSession.commitText("\n")
                 return true
             }
 
@@ -1087,6 +1098,7 @@ private fun CodeEditorContent(
             gutterWidthPx = gutterWidthPx,
             paneTopInWindow = paneTopInWindow,
             paneBottomInWindow = paneBottomInWindow,
+            completionStyle = completionStyle,
             safeSelected = safeSelected,
             onAccept = { accept(it) },
         )
@@ -1244,6 +1256,7 @@ private fun CompletionPopupLayer(
     gutterWidthPx: Float,
     paneTopInWindow: Float,
     paneBottomInWindow: Float,
+    completionStyle: String,
     safeSelected: Int,
     onAccept: (UiCompletionItem?) -> Unit,
 ) {
@@ -1252,20 +1265,29 @@ private fun CompletionPopupLayer(
         val density = LocalDensity.current
         val anchor = shown.tokenStart.coerceIn(0, docLength)
         val (_, anchorX, anchorTop) = caretGeometry(anchor)
+        val lineTopPx = anchorTop
         val lineBottomPx = anchorTop + metrics.lineHeight
         val gapPx = with(density) { 6.dp.roundToPx() }
         val marginPx = with(density) { 8.dp.roundToPx() }
-        val positionProvider = remember(anchorX, lineBottomPx, gapPx, marginPx) {
+        val lineTopWindow = paneTopInWindow + lineTopPx
+        val lineBottomWindow = paneTopInWindow + lineBottomPx
+        val roomBelowPx = (paneBottomInWindow - lineBottomWindow - gapPx - marginPx).coerceAtLeast(0f)
+        val roomAbovePx = (lineTopWindow - paneTopInWindow - gapPx - marginPx).coerceAtLeast(0f)
+        val growUpward = roomAbovePx * 2f >= roomBelowPx * 3f
+        val availableRoomPx = if (growUpward) roomAbovePx else roomBelowPx
+        val positionProvider = remember(anchorX, lineTopPx, lineBottomPx, gapPx, marginPx, paneTopInWindow, paneBottomInWindow, growUpward) {
             CompletionPopupPositionProvider(
                 anchorX.roundToInt().coerceAtLeast(gutterWidthPx.roundToInt()),
+                lineTopPx.roundToInt(),
                 lineBottomPx.roundToInt(),
                 gapPx,
                 marginPx,
+                paneTopInWindow.roundToInt(),
+                paneBottomInWindow.roundToInt(),
+                growUpward,
             )
         }
-        // room between the caret line and the pane bottom (which already sits above the keyboard)
-        val caretBottomY = paneTopInWindow + lineBottomPx
-        val roomBelowDp = with(density) { (paneBottomInWindow - caretBottomY - gapPx - marginPx).toDp() }
+        val roomDp = with(density) { availableRoomPx.toDp() }
 
         Popup(
             popupPositionProvider = positionProvider,
@@ -1277,8 +1299,8 @@ private fun CompletionPopupLayer(
             BoxWithConstraints {
                 val compact = maxWidth < 600.dp
                 val popupWidth = if (compact) (maxWidth * 0.85f).coerceIn(240.dp, 340.dp) else 440.dp
-                // Fill the room below the caret so the list auto-expands. Bounded by a generous ceiling.
-                val listMax = roomBelowDp.coerceIn(MinListHeight, MaxListHeight)
+                // Fill the available room on the chosen side of the caret. Bounded by a generous ceiling.
+                val listMax = roomDp.coerceIn(MinListHeight, MaxListHeight)
                 val items = shown.items
                 CompletionList(
                     items = items,
@@ -1292,6 +1314,8 @@ private fun CompletionPopupLayer(
                         onAccept(item) // accept the tapped row, not the (stale) currently-selected index
                     },
                     onHover = { completion.selected = it },
+                    style = if (completionStyle == "compact") CompletionPopupStyle.Compact else CompletionPopupStyle.Regular,
+                    growUpward = growUpward,
                 )
             }
         }

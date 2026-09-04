@@ -57,7 +57,7 @@ internal class CompletionController(
     // completion — leaves the popup closed. Consumed by the text-revision trigger.
     private var suppressNextTrigger = false
 
-    /** Whether typing auto-opens the popup (Settings → Completion). When off, only explicit triggers open it. */
+    /** Whether typing auto-opens the popup (Settings → Completion). When off, explicit triggers and member access '.' still open it. */
     var autoPopupEnabled: Boolean = true
 
     /** Debounce (ms) before an auto-popup request fires (Settings → Completion → Advanced). */

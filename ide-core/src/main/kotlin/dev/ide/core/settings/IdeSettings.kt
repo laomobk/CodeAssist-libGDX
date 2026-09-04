@@ -52,6 +52,8 @@ data class IdeSettings(
     // ---- completion ----
     /** Pop the completion list up automatically while typing; off = only on explicit trigger (Ctrl-Space). */
     val completionAutoPopup: Boolean = true,
+    /** Completion popup density: [COMPLETION_STYLE_REGULAR] or [COMPLETION_STYLE_COMPACT]. */
+    val completionStyle: String = COMPLETION_STYLE_REGULAR,
     /** Debounce after a keystroke before the auto-popup requests completion. */
     val completionDelayMs: Int = 110,
     /** Hard ceiling on the number of completions shown after ranking. */
@@ -60,6 +62,8 @@ data class IdeSettings(
     val postfixTemplates: Boolean = true,
     /** Offer plain words already in the buffer (hippie/word completion) as a fallback. */
     val wordCompletion: Boolean = true,
+    /** Number of rows in the touch symbol bar (1 or 2). */
+    val symbolBarRows: Int = 1,
 
     // ---- analysis ----
     /** Run diagnostics as you type. Off = the editor never auto-analyzes (errors only surface on build). */
@@ -89,6 +93,8 @@ data class IdeSettings(
         const val ACCENT_CUSTOM = "custom"
         const val CODE_FONT_JETBRAINS = "jetbrains"
         const val CODE_FONT_MONOSPACE = "monospace"
+        const val COMPLETION_STYLE_REGULAR = "regular"
+        const val COMPLETION_STYLE_COMPACT = "compact"
 
         // Bounds the UI sliders enforce and the store clamps to (a hand-edited prefs file can't push the
         // editor into an unusable state).
