@@ -176,6 +176,9 @@ object JavaBytecode {
                             // Left EMPTY when the attribute is absent, never filled with `p0`/`p1`: that is the
                             // signal the source-doc enrichment keys off to splice the real names in.
                             paramNames = paramNames,
+                            // Java methods cannot declare Kotlin-style default arguments. Keep a complete
+                            // all-false mask so Kotlin call diagnostics can validate omitted arguments.
+                            paramHasDefault = List(paramTypes.size) { false },
                             declaringClassFqn = classFqn,
                             isDeprecated = access and Opcodes.ACC_DEPRECATED != 0,
                             // ACC_VARARGS ⇒ the LAST parameter is a vararg (`String...`), so it absorbs trailing args.

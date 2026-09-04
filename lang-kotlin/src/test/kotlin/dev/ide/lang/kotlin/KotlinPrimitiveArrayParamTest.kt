@@ -73,6 +73,15 @@ class KotlinPrimitiveArrayParamTest {
         )
     }
 
+    @Test
+    fun missingArgumentOnJavaMemberIsFlagged() {
+        val ds = analyze("fun f(s: Sink) { s.add() }")
+        assertTrue(
+            ds.any { it.code == KotlinDiagnosticCodes.ARGUMENT_COUNT },
+            "Java methods have no default arguments; add() must report its required parameter. got $ds",
+        )
+    }
+
     /** The reported second half: with no mismatch there is no lightbulb, so the unrelated `other.write`
      *  extension is no longer offered as the "fix" for a perfectly valid call. */
     @Test
@@ -108,6 +117,7 @@ class KotlinPrimitiveArrayParamTest {
             method("write", "(I)V")
             method("write", "([B)V")
             method("write", "([BII)V")
+            method("add", "(Ljava/lang/Object;)Z")
             method("ints", "([I)V")
             method("chars", "([C)V")
             method("names", "([Ljava/lang/String;)V")
