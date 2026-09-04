@@ -72,6 +72,18 @@ internal fun canNarrowLocally(
     !dismissed && session != null && session.canFilterLocally && !session.isIncomplete &&
         session.coversCaret(text, caret, extra)
 
+/** Manual-popup lifetime rule: edits and caret moves are tolerated only while the same completion token still
+ * covers the caret. This deliberately includes the token start (the common result after backspace) and excludes
+ * punctuation/whitespace or a caret moved to another token. */
+internal fun keepsManualCompletionAlive(
+    explicitSession: Boolean,
+    dismissed: Boolean,
+    session: CompletionSession?,
+    text: CharSequence,
+    caret: Int,
+    extra: String = "",
+): Boolean = explicitSession && !dismissed && session?.coversCaret(text, caret, extra) == true
+
 /**
  * Identifier-continuation test (Java-ish, but neutral enough for most C-family languages). [extra] adds
  * language-specific word characters so the popup stays anchored to the same token in non-Java syntaxes —

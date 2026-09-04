@@ -524,7 +524,7 @@ private fun CodeEditorContent(
         // Soft-keyboard Tab (the touch symbol bar) accepts the highlighted completion when the popup is up,
         // mirroring the hardware-Tab path (onPreviewKey); the caller falls back to indent when this returns false.
         editorSession.acceptCompletionIfShowing = { if (showPopup) { accept(); true } else false }
-        editorSession.requestCompletion = { if (!readOnly && !largeFile) completion.reopen(immediate = true) }
+        editorSession.requestCompletion = { if (!readOnly && !largeFile) completion.reopen(immediate = true, explicit = true) }
         // Soft-keyboard Enter in a live template steps to the next field instead of inserting a newline — the IME
         // path (commitText "\n" / performEditorAction) bypasses onPreviewKey, so it consults this. Mirrors the
         // hardware-Enter template handling: accept a showing completion first (accept() then advances the
@@ -575,10 +575,34 @@ private fun CodeEditorContent(
                 if (completion.autoPopupEnabled || before == '.') completion.reopen() else completion.dismiss()
             CompletionKeystroke.Extend ->
                 if (!canNarrowLocally(completion.current, completion.dismissed, d.chars, caret, wordExtra)) {
-                    if (completion.autoPopupEnabled || before == '.') completion.reopen() else completion.dismiss()
+                    // An explicit/manual session remains live while the caret is still inside its token. Re-query
+                    // when the cached result cannot be narrowed locally (for example an incomplete provider result),
+                    // so typing and backspacing continue to update the list instead of closing it.
+                    if (completion.keepsExplicitSession(d.chars, caret, wordExtra) || completion.autoPopupEnabled) {
+                        completion.reopen()
+                    } else completion.dismiss()
                 }
-            CompletionKeystroke.Dismiss -> completion.dismiss()
+            CompletionKeystroke.Dismiss ->
+                // Backspace/delete can leave the caret at the token start, where there is no identifier immediately
+                // before it. Keep a manual popup in that same token alive; punctuation/whitespace moves the caret
+                // outside the token and is dismissed by the coverage check.
+                if (!completion.keepsExplicitSession(d.chars, caret, wordExtra)) completion.dismiss()
         }
+    }
+
+    // Caret navigation does not bump textRevision, so it needs its own guard. Moving within the active token keeps
+    // a manual popup open; crossing either token boundary closes it immediately.
+    var completionSelectionRevision by remember(path) { mutableIntStateOf(editorSession.textRevision) }
+    LaunchedEffect(path, editorSession.selection, completion.current?.tokenStart, completion.dismissed, completion.refreshing) {
+        // Text edits also move the caret. The text-revision effect above owns those transitions (including `.`
+        // opening a new context), so do not let this caret-only guard inspect the stale pre-edit session.
+        if (editorSession.textRevision != completionSelectionRevision) {
+            completionSelectionRevision = editorSession.textRevision
+            return@LaunchedEffect
+        }
+        if (completion.explicitSession && !completion.refreshing && !completion.dismissed && completion.current != null &&
+            !completion.keepsExplicitSession(editorSession.doc.chars, caretOffset, wordExtra)
+        ) completion.dismiss()
     }
 
     // code-action availability — debounced on the selection + text revision, so the lightbulb appears when the

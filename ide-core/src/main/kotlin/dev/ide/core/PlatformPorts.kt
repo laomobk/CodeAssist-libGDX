@@ -41,7 +41,12 @@ data class LibGdxPreviewRequest(
     val classpath: List<Path>,
     val mainClass: String,
     val assetsDir: Path,
+    val gameName: String,
+    val orientation: LibGdxPreviewOrientation,
+    val showTitleBar: Boolean,
 )
+
+enum class LibGdxPreviewOrientation { LANDSCAPE, PORTRAIT }
 
 /** On-device host for a libGDX game preview. No user APK or dynamic user dex is produced. */
 fun interface LibGdxPreviewLauncher {

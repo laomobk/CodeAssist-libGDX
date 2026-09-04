@@ -136,7 +136,6 @@
                 android:name=".libgdx.LibGdxPreviewActivity"
                 android:exported="false"
                 android:process=":libgdxPreview"
-                android:screenOrientation="sensorLandscape"
                 android:configChanges="orientation|screenSize|keyboardHidden"
                 android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
 

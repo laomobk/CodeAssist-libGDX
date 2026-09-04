@@ -48,6 +48,7 @@ import dev.ide.core.MEM_HEARTBEAT_EVERY_SAMPLES
 import dev.ide.core.MEM_SAMPLE_INTERVAL_MS
 import dev.ide.core.MemSample
 import dev.ide.core.LibGdxPreviewRequest
+import dev.ide.core.LibGdxPreviewOrientation
 import dev.ide.core.PeakHeap
 import dev.ide.core.PermissionPolicy
 import dev.ide.core.event.BuildEvent
@@ -780,11 +781,21 @@ internal class BuildService(private val ctx: EngineContext) : Disposable, BuildC
                     val moduleRoot = ctx.moduleRoot(module)
                         ?: return fail("Cannot locate module '${module.name}'.")
                     val marker = moduleRoot.resolve("libgdx.properties")
-                    val mainClass = runCatching {
-                        java.util.Properties().apply { Files.newInputStream(marker).use(::load) }
-                            .getProperty("mainClass")?.trim()
-                    }.getOrNull()?.takeIf { it.isNotEmpty() }
+                    val properties = runCatching {
+                        java.util.Properties().apply { Files.newBufferedReader(marker).use(::load) }
+                    }.getOrElse { return fail("Cannot read ${marker.fileName}: ${it.message}") }
+                    val mainClass = properties.getProperty("mainClass")?.trim()?.takeIf { it.isNotEmpty() }
                         ?: return fail("Missing mainClass in ${marker.fileName}.")
+                    val gameName = properties.getProperty("gameName")?.trim()?.takeIf { it.isNotEmpty() }
+                        ?: module.name
+                    val orientation = when (properties.getProperty("previewOrientation", "landscape").trim().lowercase()) {
+                        "landscape" -> LibGdxPreviewOrientation.LANDSCAPE
+                        "portrait" -> LibGdxPreviewOrientation.PORTRAIT
+                        else -> return fail("previewOrientation must be 'landscape' or 'portrait'.")
+                    }
+                    val showTitleBar = properties.getProperty("previewShowTitleBar", "true").trim()
+                        .toBooleanStrictOrNull()
+                        ?: return fail("previewShowTitleBar must be 'true' or 'false'.")
                     val assets = module.sourceSets.flatMap { it.contentRoots }
                         .firstOrNull { ContentRole.ASSETS in it.roles }
                         ?.let { Paths.get(it.dir.path) }
@@ -802,6 +813,9 @@ internal class BuildService(private val ctx: EngineContext) : Disposable, BuildC
                                 buildSystem.runtimeClasspath(module),
                                 mainClass,
                                 assets.toAbsolutePath().normalize(),
+                                gameName,
+                                orientation,
+                                showTitleBar,
                             )
                         )
                         log("Opened embedded libGDX preview: $mainClass")

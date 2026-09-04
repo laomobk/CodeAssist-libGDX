@@ -1,9 +1,16 @@
 package dev.ide.android.libgdx
 
+import android.app.AlertDialog
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toolbar
 import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
@@ -11,6 +18,7 @@ import com.badlogic.gdx.backends.android.AndroidFiles
 import com.badlogic.gdx.backends.android.DefaultAndroidFiles
 import com.badlogic.gdx.files.FileHandle
 import dev.ide.android.DexPeerFactory
+import dev.ide.core.LibGdxPreviewOrientation
 import dev.ide.jvm.ClassBytesSource
 import dev.ide.jvm.InterpretPolicy
 import dev.ide.jvm.ReflectiveBridge
@@ -29,8 +37,15 @@ import com.badlogic.gdx.Files as GdxFiles
 class LibGdxPreviewActivity : AndroidApplication() {
     private var runtime: LibGdxVmRuntime? = null
     private var projectAssetsRoot: File? = null
+    private var previewToolbar: Toolbar? = null
+    private var exitDialog: AlertDialog? = null
+    private var immersive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = when (previewOrientation()) {
+            LibGdxPreviewOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            LibGdxPreviewOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
         super.onCreate(savedInstanceState)
         runCatching {
             val classpath = intent.getStringArrayListExtra(EXTRA_CLASSPATH).orEmpty().map(Paths::get)
@@ -44,9 +59,99 @@ class LibGdxPreviewActivity : AndroidApplication() {
             val vmRuntime = LibGdxVmRuntime(classpath, cacheDir.toPath().resolve("libgdx-peers"))
             runtime = vmRuntime
             val listener = vmRuntime.newListener(mainClass)
-            initialize(listener, AndroidApplicationConfiguration())
+            val gameView = initializeForView(listener, AndroidApplicationConfiguration())
+            val gameName = intent.getStringExtra(EXTRA_GAME_NAME)?.trim().orEmpty().ifEmpty { "libGDX Preview" }
+            title = gameName
+            if (intent.getBooleanExtra(EXTRA_SHOW_TITLE_BAR, true)) {
+                setContentView(createPreviewLayout(gameName, gameView))
+            } else {
+                setContentView(gameView)
+            }
         }.onFailure(::showStartupError)
     }
+
+    private fun previewOrientation(): LibGdxPreviewOrientation = runCatching {
+        LibGdxPreviewOrientation.valueOf(
+            intent.getStringExtra(EXTRA_ORIENTATION) ?: LibGdxPreviewOrientation.LANDSCAPE.name
+        )
+    }.getOrDefault(LibGdxPreviewOrientation.LANDSCAPE)
+
+    private fun createPreviewLayout(gameName: String, gameView: View): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.BLACK)
+            addView(createToolbar(gameName), LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(56),
+            ))
+            addView(gameView, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            ))
+        }
+
+    private fun createToolbar(gameName: String): Toolbar = Toolbar(this).apply {
+        previewToolbar = this
+        title = gameName
+        setTitleTextColor(Color.WHITE)
+        setBackgroundColor(Color.rgb(28, 30, 34))
+        elevation = dp(4).toFloat()
+        setNavigationIcon(android.R.drawable.ic_menu_revert)
+        navigationContentDescription = "Back"
+        setNavigationOnClickListener { showExitConfirmation() }
+        menu.add(0, MENU_ENTER_FULLSCREEN, 0, "Enter fullscreen").apply {
+            setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        }
+        setOnMenuItemClickListener { item ->
+            if (item.itemId == MENU_ENTER_FULLSCREEN) {
+                enterFullscreen()
+                true
+            } else false
+        }
+    }
+
+    private fun enterFullscreen() {
+        immersive = true
+        previewToolbar?.visibility = View.GONE
+        applyImmersiveMode()
+    }
+
+    private fun applyImmersiveMode() {
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && immersive) applyImmersiveMode()
+    }
+
+    @Deprecated("Android routes system Back here for this Activity")
+    override fun onBackPressed() {
+        showExitConfirmation()
+    }
+
+    private fun showExitConfirmation() {
+        if (exitDialog?.isShowing == true || isFinishing) return
+        exitDialog = AlertDialog.Builder(this)
+            .setTitle("Exit preview?")
+            .setMessage("The game preview will stop and return to the editor.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Exit") { _, _ -> finish() }
+            .create()
+            .also { dialog ->
+                dialog.setOnDismissListener { exitDialog = null }
+                dialog.show()
+            }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     /** libGDX assigns Gdx.files again during resume, so install the project-backed implementation at creation. */
     override fun createFiles(): AndroidFiles {
@@ -61,6 +166,8 @@ class LibGdxPreviewActivity : AndroidApplication() {
     }
 
     override fun onDestroy() {
+        exitDialog?.dismiss()
+        exitDialog = null
         runtime?.close()
         runtime = null
         super.onDestroy()
@@ -79,6 +186,10 @@ class LibGdxPreviewActivity : AndroidApplication() {
             setPadding(48, 48, 48, 48)
             textSize = 16f
         })
+    }
+
+    private companion object {
+        const val MENU_ENTER_FULLSCREEN = 1
     }
 }
 

@@ -26,6 +26,9 @@ object LibGdxModuleType : ModuleType {
 object LibGdxProjectTemplate : ProjectTemplate {
     const val GDX_VERSION = "1.14.2"
     const val MODULE = "core"
+    const val GAME_NAME = "gameName"
+    const val PREVIEW_ORIENTATION = "previewOrientation"
+    const val PREVIEW_SHOW_TITLE_BAR = "previewShowTitleBar"
 
     override val id = TemplateId("libgdx")
     override val displayName = "libGDX Game"
@@ -33,7 +36,30 @@ object LibGdxProjectTemplate : ProjectTemplate {
     override val category = TemplateCategory.OTHER
     override val iconId = "java"
 
-    override fun parameters(): List<TemplateParameter> = emptyList()
+    override fun parameters(): List<TemplateParameter> = listOf(
+        TemplateParameter.Text(
+            key = GAME_NAME,
+            label = "Game name",
+            placeholder = "Defaults to project name",
+            help = "Displayed in the libGDX preview title bar.",
+        ),
+        TemplateParameter.Choice(
+            key = PREVIEW_ORIENTATION,
+            label = "Preview orientation",
+            options = listOf(
+                TemplateParameter.Choice.Option("landscape", "Landscape"),
+                TemplateParameter.Choice.Option("portrait", "Portrait"),
+            ),
+            defaultIndex = 0,
+            help = "Landscape follows both landscape rotations of the device.",
+        ),
+        TemplateParameter.Toggle(
+            key = PREVIEW_SHOW_TITLE_BAR,
+            label = "Show preview title bar",
+            default = true,
+            help = "The title bar provides Back and Enter fullscreen actions.",
+        ),
+    )
 
     override fun generate(scaffold: ProjectScaffold, args: TemplateArgs) {
         scaffold.workspace.beginModification().apply {
@@ -59,6 +85,9 @@ object LibGdxProjectTemplate : ProjectTemplate {
 
         val pkg = args.packageName
         val mainClass = "$pkg.Main"
+        val gameName = args.string(GAME_NAME, args.name)
+        val previewOrientation = args.string(PREVIEW_ORIENTATION, "landscape")
+        val previewShowTitleBar = args.bool(PREVIEW_SHOW_TITLE_BAR, true)
         scaffold.writeText(
             "$MODULE/src/main/java/${JavaTemplateSupport.pkgPath(pkg)}/Main.java",
             """
@@ -97,7 +126,15 @@ object LibGdxProjectTemplate : ProjectTemplate {
             }
             """,
         )
-        scaffold.writeText("$MODULE/libgdx.properties", "mainClass=$mainClass\n")
+        scaffold.writeText(
+            "$MODULE/libgdx.properties",
+            """
+            mainClass=$mainClass
+            gameName=$gameName
+            previewOrientation=$previewOrientation
+            previewShowTitleBar=$previewShowTitleBar
+            """,
+        )
         scaffold.writeText(
             "assets/README.txt",
             "Files in this directory are available through Gdx.files.internal(...).\n",

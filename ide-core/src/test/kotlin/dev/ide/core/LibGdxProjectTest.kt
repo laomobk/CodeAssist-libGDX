@@ -23,6 +23,7 @@ import dev.ide.vfs.local.LocalFileSystem
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Properties
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,7 +38,13 @@ class LibGdxProjectTest {
         try {
             manager.create(
                 "libgdx",
-                mapOf(TemplateArgs.NAME to "Orbit", TemplateArgs.PACKAGE to "com.example.orbit"),
+                mapOf(
+                    TemplateArgs.NAME to "Orbit",
+                    TemplateArgs.PACKAGE to "com.example.orbit",
+                    LibGdxProjectTemplate.GAME_NAME to "轨道跑者",
+                    LibGdxProjectTemplate.PREVIEW_ORIENTATION to "portrait",
+                    LibGdxProjectTemplate.PREVIEW_SHOW_TITLE_BAR to "false",
+                ),
             ).use { ide ->
                 val module = ide.modules().single()
                 assertEquals("core", module.name)
@@ -47,7 +54,13 @@ class LibGdxProjectTest {
                 val main = projectRoot.resolve("core/src/main/java/com/example/orbit/Main.java")
                 val assets = projectRoot.resolve("assets")
                 assertTrue(Files.isRegularFile(main), "Main.java should use the conventional libGDX core layout")
-                assertTrue(Files.isRegularFile(projectRoot.resolve("core/libgdx.properties")))
+                val propertiesFile = projectRoot.resolve("core/libgdx.properties")
+                assertTrue(Files.isRegularFile(propertiesFile))
+                val properties = Properties().apply { Files.newBufferedReader(propertiesFile).use(::load) }
+                assertEquals("com.example.orbit.Main", properties.getProperty("mainClass"))
+                assertEquals("轨道跑者", properties.getProperty("gameName"))
+                assertEquals("portrait", properties.getProperty("previewOrientation"))
+                assertEquals("false", properties.getProperty("previewShowTitleBar"))
                 assertTrue(Files.isRegularFile(assets.resolve("shaders/default.vert")))
                 assertTrue(Files.isRegularFile(assets.resolve("shaders/default.frag")))
                 assertTrue(Files.readString(main).contains("extends ApplicationAdapter"))
@@ -74,6 +87,25 @@ class LibGdxProjectTest {
     }
 
     @Test
+    fun blankGameNameFallsBackToProjectNameAndPreviewDefaultsAreStable() = withTempDir("ide-libgdx-defaults") { root ->
+        val manager = ProjectManager.desktop(root.resolve("projects"))
+        try {
+            manager.create(
+                "libgdx",
+                mapOf(TemplateArgs.NAME to "Default Game", TemplateArgs.PACKAGE to "com.example.defaults"),
+            ).use {
+                val propertiesFile = Path.of(manager.list().single().rootPath).resolve("core/libgdx.properties")
+                val properties = Properties().apply { Files.newBufferedReader(propertiesFile).use(::load) }
+                assertEquals("Default Game", properties.getProperty("gameName"))
+                assertEquals("landscape", properties.getProperty("previewOrientation"))
+                assertEquals("true", properties.getProperty("previewShowTitleBar"))
+            }
+        } finally {
+            manager.dispose()
+        }
+    }
+
+    @Test
     fun glslCompletionWorksForShaderInsideAssets() = withTempDir("ide-libgdx-glsl") { root ->
         val manager = ProjectManager.desktop(root.resolve("projects"))
         try {
@@ -93,6 +125,38 @@ class LibGdxProjectTest {
                     ide.complete(shader, variableSource.replace("|", ""), variableOffset)
                 }
                 assertTrue("gl_FragCoord" in variable.items.map { it.label }, "GLSL built-in variable completion expected")
+            }
+        } finally {
+            manager.dispose()
+        }
+    }
+
+    @Test
+    fun libGdxPropertiesCompletionSuggestsKeysAndKnownValues() = withTempDir("ide-libgdx-properties") { root ->
+        val manager = ProjectManager.desktop(root.resolve("projects"))
+        try {
+            manager.create(
+                "libgdx",
+                mapOf(TemplateArgs.NAME to "PropertiesGame", TemplateArgs.PACKAGE to "com.example.properties"),
+            ).use { ide ->
+                val properties = Path.of(manager.list().single().rootPath).resolve("core/libgdx.properties")
+
+                val keySource = "previewOr|"
+                val key = runBlocking { ide.complete(properties, keySource.removeSuffix("|"), keySource.indexOf('|')) }
+                assertTrue(
+                    key.items.any { it.label == "previewOrientation" && it.insertText == "previewOrientation=" },
+                    "libGDX property keys should insert a complete key assignment: ${key.items}",
+                )
+
+                val valueSource = "previewOrientation=por|"
+                val value = runBlocking { ide.complete(properties, valueSource.removeSuffix("|"), valueSource.indexOf('|')) }
+                assertTrue("portrait" in value.items.map { it.label }, "orientation values should complete: ${value.items}")
+
+                val booleanSource = "previewShowTitleBar=fal|"
+                val boolean = runBlocking {
+                    ide.complete(properties, booleanSource.removeSuffix("|"), booleanSource.indexOf('|'))
+                }
+                assertTrue("false" in boolean.items.map { it.label }, "boolean values should complete: ${boolean.items}")
             }
         } finally {
             manager.dispose()

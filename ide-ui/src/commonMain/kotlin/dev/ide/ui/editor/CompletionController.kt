@@ -39,6 +39,17 @@ internal class CompletionController(
     var selected by mutableIntStateOf(0)
     var dismissed by mutableStateOf(false)
 
+    /** True while the current popup was opened by an explicit/manual request (toolbar, Ctrl-Space, or a
+     * member-access continuation from such a session). Manual sessions stay alive while the caret remains in
+     * the same token, even when automatic popup triggering is disabled. */
+    var explicitSession by mutableStateOf(false)
+        private set
+
+    /** A fresh backend request is replacing the cached token. While it is pending, the old token must not make
+     * the caret guard dismiss the popup (notably when `.` starts a new member-access context). */
+    var refreshing by mutableStateOf(false)
+        private set
+
     /** Keep-alive latch for the popup WINDOW (mounted across the 1-frame gaps a keystroke opens up). */
     var popupVisible by mutableStateOf(false)
         private set
@@ -48,6 +59,7 @@ internal class CompletionController(
         private set
 
     private var job: Job? = null
+    private var refreshGeneration = 0
 
     /** The token start the in-flight [job] is resolving, so a continuation keystroke on the SAME token can
      *  coalesce into it instead of stacking another round-trip. -1 when nothing is in flight. */
@@ -75,17 +87,24 @@ internal class CompletionController(
         val tokenStart = tokenStartAt(session.doc.text, session.selection.start)
         if (!immediate && job?.isActive == true && inFlightTokenStart == tokenStart) return
         job?.cancel()
+        val generation = ++refreshGeneration
+        refreshing = true
         inFlightTokenStart = tokenStart
         job = scope.launch {
-            if (!immediate) delay(delayMs.milliseconds)
-            val text = session.doc.text
-            val caret = session.selection.start
-            val res = runCatching { backend.editor.complete(path, text, caret) }.getOrNull()
-                ?: return@launch
-            val sameToken = res.replaceStart == current?.tokenStart
-            current = CompletionSession.from(res)
-            if (!sameToken) selected = 0
-            dismissed = res.items.isEmpty()
+            try {
+                if (!immediate) delay(delayMs.milliseconds)
+                val text = session.doc.text
+                val caret = session.selection.start
+                val res = runCatching { backend.editor.complete(path, text, caret) }.getOrNull()
+                    ?: return@launch
+                if (generation != refreshGeneration) return@launch
+                val sameToken = res.replaceStart == current?.tokenStart
+                current = CompletionSession.from(res)
+                if (!sameToken) selected = 0
+                dismissed = res.items.isEmpty()
+            } finally {
+                if (generation == refreshGeneration) refreshing = false
+            }
         }
     }
 
@@ -107,15 +126,24 @@ internal class CompletionController(
     /** Close the popup + cancel any in-flight request (Esc / accept / click-away / non-identifier). */
     fun dismiss() {
         dismissed = true
+        explicitSession = false
+        ++refreshGeneration
+        refreshing = false
         job?.cancel()
         inFlightTokenStart = -1
     }
 
-    /** Re-arm and request fresh items now (Ctrl-Space, or a trigger char `.`/identifier). */
-    fun reopen(immediate: Boolean = false) {
+    /** Re-arm and request fresh items now (Ctrl-Space, a completion button, or a trigger char `.`/identifier).
+     * [explicit] marks a manual session; a dot also inherits an already-active manual session. */
+    fun reopen(immediate: Boolean = false, explicit: Boolean = immediate) {
+        if (explicit || !autoPopupEnabled) explicitSession = true
         dismissed = false
         refresh(immediate)
     }
+
+    /** Whether an edit can keep a manual popup alive without moving to another completion context. */
+    fun keepsExplicitSession(text: CharSequence, caret: Int, extra: String): Boolean =
+        keepsManualCompletionAlive(explicitSession, dismissed, current, text, caret, extra)
 
     /** accept() is about to insert an identifier; swallow the resulting re-trigger so the popup stays closed. */
     fun suppressNext() {

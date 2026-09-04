@@ -49,6 +49,20 @@ class CompletionMatchTest {
         assertFalse(canNarrowLocally(null, dismissed = false, text = "foo.bar", caret = 7))
     }
 
+    @Test fun manualPopupSurvivesTypingAndBackspaceInsideTheToken() {
+        val s = sessionAt(4)
+        assertTrue(keepsManualCompletionAlive(true, false, s, "foo.bar", caret = 4))
+        assertTrue(keepsManualCompletionAlive(true, false, s, "foo.ba", caret = 6))
+        assertTrue(keepsManualCompletionAlive(true, false, s, "foo.bar", caret = 7))
+    }
+
+    @Test fun manualPopupClosesWhenCaretLeavesTheToken() {
+        val s = sessionAt(4)
+        assertFalse(keepsManualCompletionAlive(true, false, s, "foo.bar ", caret = 8))
+        assertFalse(keepsManualCompletionAlive(true, false, s, "foo.bar", caret = 3))
+        assertFalse(keepsManualCompletionAlive(false, false, s, "foo.bar", caret = 7))
+    }
+
     @Test fun requeriesWhenCaretLeftTheToken() {
         assertFalse(canNarrowLocally(sessionAt(4), dismissed = false, text = "foo.b r", caret = 7)) // non-ident in span
         assertFalse(canNarrowLocally(sessionAt(4), dismissed = false, text = "foo.bar", caret = 3)) // caret before tokenStart

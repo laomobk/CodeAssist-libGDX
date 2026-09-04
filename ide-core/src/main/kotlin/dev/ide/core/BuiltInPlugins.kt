@@ -27,6 +27,7 @@ import dev.ide.core.analysis.PluginManifestAnalyzer
 import dev.ide.core.completion.BufferWordsContributor
 import dev.ide.core.completion.CompletionStats
 import dev.ide.core.completion.GlslCompletionContributor
+import dev.ide.core.completion.LibGdxPropertiesCompletion
 import dev.ide.core.completion.PluginManifestCompletion
 import dev.ide.core.completion.PostfixContributor
 import dev.ide.core.completion.UserLiveTemplateContributor
@@ -167,6 +168,7 @@ object BuiltInPlugins {
         BuiltInPlugin(XmlLanguagePlugin()),
         BuiltInPlugin(KotlinLanguagePlugin()),
         BuiltInPlugin(GlslLanguagePlugin()),
+        BuiltInPlugin(LibGdxPropertiesPlugin()),
         BuiltInPlugin(JavaSupportPlugin()),
         BuiltInPlugin(KotlinSupportPlugin()),
         BuiltInPlugin(KspSupportPlugin(env)),
@@ -328,6 +330,23 @@ private class GlslLanguagePlugin : Plugin {
         reg.register(
             COMPLETION_CONTRIBUTOR_EP,
             CompletionContribution(GlslCompletionContributor, languages = setOf(language)),
+        )
+    }
+}
+
+private class LibGdxPropertiesPlugin : Plugin {
+    override val manifest = PluginManifest(
+        id = "libgdx-properties",
+        name = "libGDX Properties",
+        description = "Completion for libGDX preview project settings.",
+    )
+
+    override fun register(reg: PluginRegistration) {
+        val language = LanguageId("libgdx-properties")
+        reg.register(FILE_TYPE_EP, FileTypeMapping(listOf(".properties"), language))
+        reg.register(
+            COMPLETION_CONTRIBUTOR_EP,
+            CompletionContribution(LibGdxPropertiesCompletion, languages = setOf(language)),
         )
     }
 }
