@@ -31,6 +31,15 @@ class JavaCompletionTest {
     fun setUp() {
         srcRoot = Files.createTempDirectory("java-src").toFile()
         File(srcRoot, "com/foo").mkdirs()
+        File(srcRoot, "com/bar").mkdirs()
+        File(srcRoot, "com/bar/String.java").writeText(
+            """
+            package com.bar;
+            public class String {
+                public void append() {}
+            }
+            """.trimIndent()
+        )
         File(srcRoot, "com/foo/Greeter.java").writeText(
             """
             package com.foo;
@@ -97,6 +106,33 @@ class JavaCompletionTest {
             """.trimIndent()
         )
         assertTrue("String" in labels, "a type position should offer java.lang.String; got $labels")
+    }
+
+    @Test
+    fun explicitImportShadowsJavaLangTypeInCompletion() {
+        val items = itemsAt(
+            """
+            package com.foo;
+            import com.bar.String;
+            class Use { void run() { Str| } }
+            """.trimIndent()
+        )
+        val strings = items.filter { it.label == "String" }
+        assertEquals(1, strings.size, "an explicit type import should suppress the java.lang type; got $strings")
+        assertEquals(
+            "com.bar.String",
+            (strings.single().symbol as? dev.ide.lang.java.resolve.JavaSymbol)?.psi?.let { (it as? com.intellij.psi.PsiClass)?.qualifiedName },
+            "the completion item should resolve to the explicitly imported type",
+        )
+
+        val members = itemsAt(
+            """
+            package com.foo;
+            import com.bar.String;
+            class Use { void run() { String value = new String(); value.app| } }
+            """.trimIndent()
+        ).map { it.label }
+        assertTrue("append" in members, "member completion should use the explicitly imported String; got $members")
     }
 
     @Test

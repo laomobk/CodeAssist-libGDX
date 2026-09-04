@@ -900,27 +900,20 @@ class KotlinSymbolService(
             return simple // already a full FQN (or unresolvable) → verbatim
         }
 
-        // 1. Kotlin built-in simple types (String/Int/List/Map/…) are intrinsic — they are ALWAYS in scope
-        //    via kotlin.*/kotlin.collections.* implicit imports and cannot be shadowed by an explicit import
-        //    that happens to share the simple name (e.g. `import icons.automirrored.filled.List` → the icon
-        //    object must not displace `kotlin.collections.List` in type-annotation position).
-        Builtins.DEFAULT_SIMPLE_TYPES[simple]?.let { return it }
-        // 2. An explicit (non-star) import. It wins when it resolves to a KNOWN type. When the imported FQN is
-        //    NOT known (a stale/typo'd import whose target doesn't exist — `import com.foo.Food` alongside a
-        //    same-file `data class Food`), it must NOT shadow a real same-file/same-package declaration of the
-        //    same simple name: Kotlin resolves the name to that local type and flags the import, rather than
-        //    treating every use as the missing import's (unknown) type — which suppresses member checks on the
-        //    real, known local type (an unknown receiver backs off). So an unknown import is remembered and used
-        //    only as the LAST resort below, preserving the "return the intended FQN so the unresolved-type
-        //    diagnostic points at it" behaviour when nothing local shadows it.
+        // 1. An explicit (non-star) import. It wins over Kotlin's default imports when it resolves to a KNOWN
+        //    type (`import com.badlogic.gdx.utils.Array` must bind `Array` to libGDX, not `kotlin.Array`). When
+        //    the imported FQN is NOT known, it must not shadow a real same-file/same-package declaration of the
+        //    same simple name; the unresolved import is remembered and used only as the LAST resort below.
+        //    `typeFqnKnown` also recognizes name-only library/typealias index entries whose member shape may not
+        //    be ready yet.
         val explicitImportFqn =
             ctx?.imports?.firstOrNull { !it.isStar && it.simpleName == simple }?.fqn
-        explicitImportFqn?.let { if (isKnownType(it)) return it }
-        // 3. The file's own package (source, then classpath) — a same-package type needs no import.
+        explicitImportFqn?.let { if (typeFqnKnown(it)) return it }
+        // 2. The file's own package (source, then classpath) — a same-package type needs no import.
         ctx?.packageName?.takeIf { it.isNotEmpty() }?.let { pkg ->
             "$pkg.$simple".let { cand -> if (cand in model().classByFqn || typeShape(cand) != null) return cand }
         }
-        // 4. A SAME-PACKAGE project SOURCE class by simple name — needs no import. Kotlin sources come from the
+        // 3. A SAME-PACKAGE project SOURCE class by simple name — needs no import. Kotlin sources come from the
         //    model (step 3 also covers these when the file has a package directive); Java sources from the index
         //    (SOURCE origin, no `.class` on disk yet). A DIFFERENT-package project type needs an import just like
         //    a library type does, so it is NOT resolved bare here: its use stays unresolved (the unresolved-TYPE
@@ -934,29 +927,32 @@ class KotlinSymbolService(
         index?.exactAll<ClassNameValue>(CLASS_NAMES, simple)
             ?.firstOrNull { it.origin == IndexOrigin.SOURCE && it.fqn.substringBeforeLast('.', "") == samePkg }
             ?.let { return it.fqn }
-        val starPackages =
-            (ctx?.imports?.filter { it.isStar }?.map { it.packageName } ?: emptyList()) +
-                    DefaultImports.STAR_PACKAGES
-        // 5. A top-level synthetic class (Android `R`/`BuildConfig`, a ViewBinding) by simple name; nested
+        val explicitStarPackages = ctx?.imports?.filter { it.isStar }?.map { it.packageName }.orEmpty()
+        // 4. A top-level synthetic class (Android `R`/`BuildConfig`, a ViewBinding) by simple name; nested
         //    types (`R.layout`) are reached through their outer, never resolved bare. Being generated changes
         //    nothing about SCOPE: like a source class it resolves bare only from its own package, and needs an
-        //    import anywhere else. An explicit import already resolved it at step 2 (a synthetic FQN satisfies
+        //    import anywhere else. An explicit import already resolved it at step 1 (a synthetic FQN satisfies
         //    [isKnownType]), so what remains here is the same-package case and a star import of its package,
-        //    which the step-6 loop below cannot cover, since a synthetic has no type shape to probe.
+        //    which the default-import loop below cannot cover, since a synthetic has no type shape to probe.
         //    Resolving one from ANY package, as this did, is why `R.string.app_name` in a subpackage read as
         //    fine in the editor and then failed to compile.
         synthetic().topLevelFqns.firstOrNull {
             it.substringAfterLast('.') == simple &&
-                it.substringBeforeLast('.', "").let { pkg -> pkg == samePkg || pkg in starPackages }
+                it.substringBeforeLast('.', "").let { pkg -> pkg == samePkg || pkg in explicitStarPackages }
         }?.let { return it }
-        // 6. A star-imported package, then Kotlin's implicit default star imports (kotlin.*, java.lang, …):
-        //    a simple name is visible if it lives in one of these packages.
-        for (pkg in starPackages) { // existence via the type-shape index (self-gates in dumb mode); no live probe when wired
+        // 5. User star imports precede Kotlin's implicit defaults. This matters when a project/library exposes a
+        //    classifier with a stdlib name (`import com.foo.*`): the explicit import
+        //    scope must be considered before the implicit `kotlin.Array` fallback.
+        for (pkg in explicitStarPackages) {
             val cand = "$pkg.$simple"
-            // The module model is consulted alongside the type-shape index because a project SOURCE class has
-            // no shape (nothing compiled it yet), so a star-imported one would otherwise never resolve here,
-            // the way the same-package step above already handles.
-            if (cand in model().classByFqn || typeShape(cand) != null) return cand
+            if (typeFqnKnown(cand)) return cand
+        }
+        // 6. Kotlin built-in simple types (String/Int/List/Map/…) and the remaining default-import packages.
+        //    These are the fallback only: an explicit import above is allowed to use the same simple name.
+        Builtins.DEFAULT_SIMPLE_TYPES[simple]?.let { return it }
+        for (pkg in DefaultImports.STAR_PACKAGES) {
+            val cand = "$pkg.$simple"
+            if (typeFqnKnown(cand)) return cand
         }
         // 7. An explicit import whose target is not a known type and that nothing local shadowed: return its FQN
         // 7a. A NESTED type reached by SIMPLE name from within an enclosing class (`Plan` inside `class Game {

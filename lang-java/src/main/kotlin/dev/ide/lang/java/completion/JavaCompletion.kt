@@ -615,22 +615,49 @@ class JavaCompletion(
         }
     }
 
-    /** Types resolvable in [psi] by simple name: its own classes, imports, same-package, and java.lang. */
+    /** Types resolvable in [psi] by simple name, honoring Java's import precedence.
+     *
+     * A single-type import shadows same-package and on-demand types (including java.lang). On-demand imports at
+     * the same precedence are intentionally kept together: if two wildcard imports expose the same simple name,
+     * Java considers the reference ambiguous and completion should not invent a winner.
+     */
     private fun visibleTypes(psi: PsiJavaFile, includeBulk: Boolean): List<PsiClass> {
-        val out = LinkedHashSet<PsiClass>()
-        psi.classes.forEach { out += it }
+        data class Candidate(val type: PsiClass, val priority: Int)
+        val candidates = ArrayList<Candidate>()
+        fun add(type: PsiClass, priority: Int) {
+            if (type.name != null) candidates += Candidate(type, priority)
+        }
+
+        // Types declared in this compilation unit are the closest declarations.
+        psi.classes.forEach { add(it, priority = 0) }
         psi.importList?.let { il ->
             il.importStatements.forEach { imp ->
                 when (val t = imp.resolve()) {
-                    is PsiClass -> out += t
-                    is PsiPackage -> if (imp.isOnDemand) out += t.getClasses(scope())
-                    else -> {}
+                    is PsiClass -> {
+                        if (imp.isOnDemand) t.innerClasses.forEach { add(it, priority = 3) }
+                        else add(t, priority = 1)
+                    }
+                    is PsiPackage -> if (imp.isOnDemand) t.getClasses(scope()).forEach { add(it, priority = 3) }
                 }
             }
         }
         if (includeBulk) {
-            env.facade.findPackage(psi.packageName)?.getClasses(scope())?.forEach { out += it }
-            env.facade.findPackage("java.lang")?.getClasses(scope())?.forEach { out += it }
+            env.facade.findPackage(psi.packageName)?.getClasses(scope())?.forEach { add(it, priority = 2) }
+            env.facade.findPackage("java.lang")?.getClasses(scope())?.forEach { add(it, priority = 4) }
+        }
+
+        // Keep only the best source for each simple name. Preserve all candidates at that source priority so
+        // conflicting wildcard imports remain visible as an ambiguity instead of being silently collapsed.
+        val bestPriority = HashMap<String, Int>()
+        candidates.forEach { candidate ->
+            val name = candidate.type.name ?: return@forEach
+            val previous = bestPriority[name]
+            if (previous == null || candidate.priority < previous) bestPriority[name] = candidate.priority
+        }
+        val out = LinkedHashSet<PsiClass>()
+        candidates.forEach { candidate ->
+            val name = candidate.type.name ?: return@forEach
+            if (candidate.priority == bestPriority[name]) out += candidate.type
         }
         return out.toList()
     }
