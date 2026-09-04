@@ -66,8 +66,8 @@ interface AdHost {
     /**
      * An opaque identity for the installed build: the same string for every launch of one installation, and a
      * different one after a fresh install or an update (on Android, the package's `lastUpdateTime`).
-     * [dev.ide.ui.ads.AdController] uses it to turn ads back on once per install/update. Null where the host
-     * can't tell (desktop; the default), which means the ads preference simply persists forever.
+     * [dev.ide.ui.ads.AdController] uses it to restore the ads-off default once per install/update. Null where
+     * the host can't tell (desktop; the default), which means the ads preference simply persists forever.
      */
     val installStamp: String? get() = null
 

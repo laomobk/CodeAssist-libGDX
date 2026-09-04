@@ -858,6 +858,7 @@
     <string name="edoverlay_rename_hint">按 Enter 重命名“%1$s”，按 Esc 取消</string>
     <string name="edoverlay_go_to_line">转到行</string>
     <string name="edoverlay_go_to_line_hint">第 1–%1$d 行（行号或 行号：列号）</string>
+    <string name="editor_caret_position">第 %1$d 行，第 %2$d 列</string>
     <string name="edoverlay_no_documentation">没有文档</string>
     <string name="edoverlay_cut">剪切</string>
     <string name="edoverlay_paste">粘贴</string>
@@ -1417,6 +1418,14 @@
     <string name="set_editor_code_font_monospace">系统等宽字体</string>
     <string name="set_editor_ligatures">字体连字</string>
     <string name="set_editor_ligatures_desc">当代码字体支持时，渲染编程连字（-> != >= …）</string>
+    <string name="set_editor_tabs">显示 Tab 栏</string>
+    <string name="set_editor_tabs_desc">在编辑器上方显示已打开文件的 Tab 栏</string>
+    <string name="set_editor_breadcrumb">显示导航栏</string>
+    <string name="set_editor_breadcrumb_desc">在编辑器上方显示当前模块、类型和成员路径</string>
+    <string name="set_editor_line_numbers">显示行号</string>
+    <string name="set_editor_line_numbers_desc">在编辑器侧栏中显示行号</string>
+    <string name="set_editor_gutter_width">侧栏宽度</string>
+    <string name="set_editor_gutter_width_desc">设置首选侧栏宽度；仅在行号无法完整显示时自动扩宽</string>
     <string name="set_editor_inlay">内嵌提示</string>
     <string name="set_editor_inlay_desc">以内嵌方式显示推断类型和参数名提示</string>
     <string name="set_editor_semantic">语义高亮</string>

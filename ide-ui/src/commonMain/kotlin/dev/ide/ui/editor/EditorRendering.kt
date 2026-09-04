@@ -106,6 +106,7 @@ internal fun DrawScope.drawEditor(
     foldableStartLines: Set<Int>,
     foldStripWidth: Float,
     hoveredLine: Int,
+    showLineNumbers: Boolean,
     numberLayout: (Int) -> TextLayoutResult,
     diagByLine: Map<Int, List<DiagSeg>>,
     bracketPair: Pair<Int, Int>?,
@@ -445,15 +446,17 @@ internal fun DrawScope.drawEditor(
         if (collapsed || (expandable && (line == caretLine || line == hoveredLine))) {
             drawFoldChevron(chevronCx, lineTop(line) + lineH / 2f, expanded = !collapsed, color = colors.gutterCurrent)
         }
-        val num = numberLayout(line + 1)
-        drawText(
-            num,
-            color = numColor,
-            topLeft = Offset(
-                numberRight - num.size.width,
-                lineTop(line) + (lineH - num.size.height) / 2f,
-            ),
-        )
+        if (showLineNumbers) {
+            val num = numberLayout(line + 1)
+            drawText(
+                num,
+                color = numColor,
+                topLeft = Offset(
+                    numberRight - num.size.width,
+                    lineTop(line) + (lineH - num.size.height) / 2f,
+                ),
+            )
+        }
     }
     // A hairline at the gutter's right edge separates it from the code area.
     drawLine(colors.gutterBorder, Offset(gutterWidth, 0f), Offset(gutterWidth, size.height), strokeWidth = 1f)
@@ -482,8 +485,10 @@ internal fun DrawScope.drawEditor(
                 val line = doc.lineForOffset(item.nameOffset.coerceIn(0, doc.length))
                 val y = i * lineH
                 drawRect(colors.background, Offset(0f, y), Size(size.width, lineH)) // mask scrolling code beneath
-                val num = numberLayout(line + 1)
-                drawText(num, color = colors.gutterText, topLeft = Offset(numberRight - num.size.width, y + (lineH - num.size.height) / 2f))
+                if (showLineNumbers) {
+                    val num = numberLayout(line + 1)
+                    drawText(num, color = colors.gutterText, topLeft = Offset(numberRight - num.size.width, y + (lineH - num.size.height) / 2f))
+                }
                 clipRect(left = gutterWidth, top = y, right = size.width, bottom = y + lineH) {
                     drawText(layoutFor(line), topLeft = Offset(pinnedLeft, y))
                 }

@@ -158,6 +158,8 @@ internal fun rememberEditorRenderState(
     typography: CaTypography,
     zoom: Float,
     fontLigatures: Boolean,
+    showLineNumbers: Boolean,
+    gutterWidthDp: Int,
 ): EditorRenderState {
     val syntax = colors.syntax
     val state = remember(session) { EditorRenderState(session) }
@@ -253,11 +255,18 @@ internal fun rememberEditorRenderState(
     }
     state.gutterNumberCache = remember(measurer, state.gutterStyle) { HashMap() }
 
-    val foldStripPx = with(density) { 14.dp.toPx() }
+    val foldStripPx = with(density) { 12.dp.toPx() }
     state.foldStripPx = foldStripPx
-    state.gutterWidthPx = remember(session.doc.lineCount, density, foldStripPx) {
+    state.gutterWidthPx = remember(
+        session.doc.lineCount, density, foldStripPx, showLineNumbers, gutterWidthDp, state.gutterStyle,
+    ) {
         with(density) {
-            (session.doc.lineCount.toString().length * 9 + 22).coerceAtLeast(44).dp.toPx() + foldStripPx
+            val requested = gutterWidthDp.coerceIn(34, 96).dp.toPx()
+            if (!showLineNumbers) requested else maxOf(
+                requested,
+                // Preserve room for the diagnostic marker on the left, the widest number, and the fold strip.
+                state.numberLayout(session.doc.lineCount).size.width.toFloat() + 14.dp.toPx() + foldStripPx,
+            )
         }
     }
     return state

@@ -26,7 +26,7 @@ private class StampedAdHost(override val installStamp: String?) : AdHost {
 }
 
 /**
- * The "show ads" choice is kept for every launch of one installation and reset to on by an install or update
+ * The "show ads" choice is kept for every launch of one installation and reset to off by an install or update
  * (see [AdController]).
  */
 class AdControllerInstallResetTest {
@@ -34,36 +34,39 @@ class AdControllerInstallResetTest {
     @Test
     fun choiceSurvivesRelaunchesOfTheSameInstall() {
         val backend = PrefBackend()
-        AdController(backend, StampedAdHost("build-1")).updateAdsEnabled(false)
+        AdController(backend, StampedAdHost("build-1")).updateAdsEnabled(true)
 
-        repeat(3) { assertFalse(AdController(backend, StampedAdHost("build-1")).adsEnabled) }
+        repeat(3) { assertTrue(AdController(backend, StampedAdHost("build-1")).adsEnabled) }
     }
 
     @Test
-    fun updateTurnsAdsBackOnOnce() {
+    fun updateTurnsAdsOffOnce() {
         val backend = PrefBackend()
-        AdController(backend, StampedAdHost("build-1")).updateAdsEnabled(false)
+        AdController(backend, StampedAdHost("build-1")).updateAdsEnabled(true)
 
-        assertTrue(AdController(backend, StampedAdHost("build-2")).adsEnabled, "update should re-enable ads")
+        assertFalse(AdController(backend, StampedAdHost("build-2")).adsEnabled, "update should disable ads")
         // ...and the user's next choice sticks until the NEXT update, not just until the next launch.
-        AdController(backend, StampedAdHost("build-2")).updateAdsEnabled(false)
-        assertFalse(AdController(backend, StampedAdHost("build-2")).adsEnabled)
+        AdController(backend, StampedAdHost("build-2")).updateAdsEnabled(true)
+        assertTrue(AdController(backend, StampedAdHost("build-2")).adsEnabled)
     }
 
     @Test
-    fun firstRunRecordsTheStampWithoutTouchingTheDefault() {
+    fun firstRunRecordsTheStampAndPersistsTheOffDefault() {
         val backend = PrefBackend()
 
-        assertTrue(AdController(backend, StampedAdHost("build-1")).adsEnabled)
+        assertFalse(AdController(backend, StampedAdHost("build-1")).adsEnabled)
+        assertEquals("false", backend.prefs[ADS_ENABLED_PREF])
         assertEquals("build-1", backend.prefs[ADS_ENABLED_STAMP_PREF])
     }
 
     @Test
     fun hostWithoutAnInstallIdentityNeverResets() {
         val backend = PrefBackend()
-        AdController(backend, StampedAdHost(null)).updateAdsEnabled(false)
-
         assertFalse(AdController(backend, StampedAdHost(null)).adsEnabled)
+
+        AdController(backend, StampedAdHost(null)).updateAdsEnabled(true)
+
+        assertTrue(AdController(backend, StampedAdHost(null)).adsEnabled)
         assertFalse(backend.prefs.containsKey(ADS_ENABLED_STAMP_PREF))
     }
 }

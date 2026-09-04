@@ -51,7 +51,7 @@ import dev.ide.ui.theme.Motion
 import kotlinx.coroutines.launch
 
 /**
- * Top bar + deps progress + tabs + breadcrumb row + the code canvas — the editor column shared by both
+ * Top bar + deps progress + optional tabs/breadcrumb row + the code canvas — the editor column shared by both
  * layouts. When no file is open it shows a placeholder; otherwise it runs the per-file analysis + breadcrumb
  * effects and renders the active [EditorViewMode] (code / blocks / preview / split).
  */
@@ -173,7 +173,12 @@ internal fun EditorCenter(
                 onToggleInlayHints = { state.inlayHintsEnabled = !state.inlayHintsEnabled },
                 showPreview = hasPreview,
                 previewBusy = active?.viewMode == EditorViewMode.Preview,
-                onPreview = { active?.let { it.viewMode = EditorViewMode.Preview } },
+                // The breadcrumb row can be hidden in Settings, so its view-mode control cannot be the only
+                // way back from Preview. The existing top-bar Preview action doubles as Preview/Code toggle.
+                onPreview = { active?.let {
+                    it.viewMode = if (it.viewMode == EditorViewMode.Preview) EditorViewMode.Text
+                    else EditorViewMode.Preview
+                } },
                 onIndexClick = { state.indexDetailOpen = true },
                 compatibilityMode = compatInfo != null,
                 onCompatClick = { showCompatBanner = true },
@@ -227,20 +232,22 @@ internal fun EditorCenter(
             // so it shows on open even with no file open, and even when the offending module (typically a `di/`
             // one) is never opened at all.
             ToolchainWarningBanner(state, compact)
-            TabsStrip(
-                openFiles = state.openFiles,
-                activeIndex = state.activeIndex,
-                onSelect = { state.activeIndex = it },
-                onClose = { state.close(it) },
-                onCloseOthers = { state.closeOthers(it) },
-                onCloseToRight = { state.closeToRight(it) },
-                onCloseToLeft = { state.closeToLeft(it) },
-                onCloseAll = { state.closeAll() },
-                backend = state.backend,
-            )
+            if (state.showEditorTabs) {
+                TabsStrip(
+                    openFiles = state.openFiles,
+                    activeIndex = state.activeIndex,
+                    onSelect = { state.activeIndex = it },
+                    onClose = { state.close(it) },
+                    onCloseOthers = { state.closeOthers(it) },
+                    onCloseToRight = { state.closeToRight(it) },
+                    onCloseToLeft = { state.closeToLeft(it) },
+                    onCloseAll = { state.closeAll() },
+                    backend = state.backend,
+                )
+            }
             if (active != null) {
                 EditorDaemonEffect(state, active, indexStatus) { hasPreview = it }
-                BreadcrumbBar(state, active, hasPreview)
+                if (state.showBreadcrumbBar) BreadcrumbBar(state, active, hasPreview)
                 AndroidSourcesBanner(state)
                 ReadOnlyBanner(state, active)
                 LargeFileBanner(active)
@@ -278,9 +285,11 @@ internal fun EditorCenter(
                         wrapIndent = state.wrapIndentEnabled,
                         horizontalScrollbar = state.horizontalScrollbarEnabled,
                         fontLigatures = state.fontLigaturesEnabled,
+                        showLineNumbers = state.showLineNumbers,
+                        gutterWidthDp = state.gutterWidthDp,
                         // Tapping a @Preview gutter icon switches this tab to the Preview surface, rendering that
-                        // specific composable. The editor tools (incl. the Code/Blocks/Preview switch) are pinned
-                        // to the breadcrumb row, so they're already visible — making the view change easy to undo.
+                        // specific composable. When the breadcrumb row is hidden, the top-bar Preview action is
+                        // the compact path back to Code.
                         onPreview = { fn ->
                             active.previewTarget = fn
                             active.viewMode = EditorViewMode.Preview

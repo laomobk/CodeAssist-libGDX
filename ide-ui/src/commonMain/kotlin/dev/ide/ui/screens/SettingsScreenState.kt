@@ -67,7 +67,7 @@ internal class SettingsScreenState(
     fun set(pageId: String, key: String, encoded: String, onSettingsChanged: () -> Unit) {
         values["$pageId.$key"] = encoded
         if (ads != null && pageId == PRIVACY_PAGE_ID && key == SHOW_ADS_KEY) {
-            ads.updateAdsEnabled(encoded.toBooleanStrictOrNull() ?: true)
+            ads.updateAdsEnabled(encoded.toBooleanStrictOrNull() ?: false)
         } else {
             backend.settings.setSetting(pageId, key, encoded)
             onSettingsChanged()

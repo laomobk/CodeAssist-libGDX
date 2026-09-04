@@ -462,6 +462,14 @@ class IdeUiState(
     var editorFontScale by mutableStateOf(1f)
     /** Render programming ligatures (`->`, `!=`, …) in the code editor when the font provides them (default on). */
     var fontLigaturesEnabled by mutableStateOf(true)
+    /** Show the open-file tab strip above the editor. */
+    var showEditorTabs by mutableStateOf(false)
+    /** Show the caret-aware breadcrumb navigation row above the editor. */
+    var showBreadcrumbBar by mutableStateOf(false)
+    /** Show one-based line numbers in the editor gutter. */
+    var showLineNumbers by mutableStateOf(true)
+    /** Preferred total gutter width in dp. */
+    var gutterWidthDp by mutableIntStateOf(34)
     /** Type-aware semantic highlighting layered over the lexer. */
     var semanticHighlightingEnabled by mutableStateOf(true)
     /** Code folding (imports, bodies, block comments). */
@@ -543,6 +551,10 @@ class IdeUiState(
         inlayHintsEnabled = s.inlayHints
         editorFontScale = s.editorFontScale
         fontLigaturesEnabled = s.fontLigatures
+        showEditorTabs = s.showEditorTabs
+        showBreadcrumbBar = s.showBreadcrumbBar
+        showLineNumbers = s.showLineNumbers
+        gutterWidthDp = s.gutterWidthDp.coerceIn(34, 96)
         semanticHighlightingEnabled = s.semanticHighlighting
         codeFoldingEnabled = s.codeFolding
         completionAutoPopup = s.completionAutoPopup

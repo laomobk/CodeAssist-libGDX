@@ -51,6 +51,7 @@ import dev.ide.core.templates.CodeAssistPluginTemplate
 import dev.ide.core.templates.JavaConsoleAppTemplate
 import dev.ide.core.templates.JavaLibraryTemplate
 import dev.ide.core.templates.KotlinConsoleAppTemplate
+import dev.ide.core.templates.KotlinLibGdxProjectTemplate
 import dev.ide.core.templates.KotlinLibraryTemplate
 import dev.ide.core.templates.LibGdxModuleType
 import dev.ide.core.templates.LibGdxProjectTemplate
@@ -415,6 +416,7 @@ private class KotlinSupportPlugin : Plugin {
             val templates = ProjectTemplateRegistry(ext)
             templates.register(KotlinConsoleAppTemplate, pid)
             templates.register(KotlinLibraryTemplate, pid)
+            templates.register(KotlinLibGdxProjectTemplate, pid)
         }
     }
 }

@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
                     // The full-screen build interstitial needs the foreground Activity to show().
                     activityProvider = { this@MainActivity },
                     // `lastUpdateTime` changes on a fresh install and on every update, and is identical across
-                    // launches in between — the shared AdController turns ads back on once per new value.
+                    // launches in between — the shared AdController restores the ads-off default per new value.
                     installStamp = runCatching {
                         packageManager.getPackageInfo(packageName, 0).lastUpdateTime.toString()
                     }.getOrNull(),

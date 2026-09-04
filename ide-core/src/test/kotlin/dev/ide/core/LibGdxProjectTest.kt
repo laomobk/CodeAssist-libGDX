@@ -87,6 +87,58 @@ class LibGdxProjectTest {
     }
 
     @Test
+    fun kotlinTemplateCreatesKotlinCoreWithPreviewConfigurationAndGdxDependency() =
+        withTempDir("ide-kotlin-libgdx-template") { root ->
+            val manager = ProjectManager.desktop(root.resolve("projects"))
+            try {
+                manager.create(
+                    "kotlin-libgdx",
+                    mapOf(
+                        TemplateArgs.NAME to "Kotlin Orbit",
+                        TemplateArgs.PACKAGE to "com.example.kotlinorbit",
+                        LibGdxProjectTemplate.GAME_NAME to "Kotlin Orbit",
+                        LibGdxProjectTemplate.PREVIEW_ORIENTATION to "portrait",
+                    ),
+                ).use { ide ->
+                    val module = ide.modules().single()
+                    assertEquals("core", module.name)
+                    assertEquals("java-libgdx", module.type.id)
+
+                    val projectRoot = Path.of(manager.list().single().rootPath)
+                    val main = projectRoot.resolve("core/src/main/kotlin/com/example/kotlinorbit/Main.kt")
+                    assertTrue(Files.isRegularFile(main), "Main.kt should use the conventional Kotlin source root")
+                    assertTrue(
+                        !Files.exists(projectRoot.resolve("core/src/main/java/com/example/kotlinorbit/Main.java")),
+                        "the Kotlin template must not generate a Java entry point",
+                    )
+                    assertTrue(Files.readString(main).contains("class Main : ApplicationAdapter()"))
+
+                    val sourceRoot = module.sourceSets.flatMap { it.contentRoots }
+                        .singleOrNull { ContentRole.SOURCE in it.roles }
+                    assertNotNull(sourceRoot)
+                    assertTrue(sourceRoot.dir.path.replace('\\', '/').endsWith("core/src/main/kotlin"))
+                    assertEquals(
+                        module.id,
+                        ide.moduleForEditableFile(main)?.id,
+                        "Kotlin analysis and completion need Main.kt to resolve to the core module",
+                    )
+
+                    val propertiesFile = projectRoot.resolve("core/libgdx.properties")
+                    val properties = Properties().apply { Files.newBufferedReader(propertiesFile).use(::load) }
+                    assertEquals("com.example.kotlinorbit.Main", properties.getProperty("mainClass"))
+                    assertEquals("portrait", properties.getProperty("previewOrientation"))
+                    assertTrue(Files.isRegularFile(projectRoot.resolve("assets/shaders/default.vert")))
+
+                    val declared = module.dependencies.filterIsInstance<LibraryDependency>()
+                        .map { it.library.name }
+                    assertTrue("com.badlogicgames.gdx:gdx:${LibGdxProjectTemplate.GDX_VERSION}" in declared)
+                }
+            } finally {
+                manager.dispose()
+            }
+        }
+
+    @Test
     fun blankGameNameFallsBackToProjectNameAndPreviewDefaultsAreStable() = withTempDir("ide-libgdx-defaults") { root ->
         val manager = ProjectManager.desktop(root.resolve("projects"))
         try {

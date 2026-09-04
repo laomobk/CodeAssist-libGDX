@@ -30,6 +30,14 @@ data class IdeSettings(
     /** Render programming ligatures (`->`, `!=`, `>=`, …) when the code font provides them (JetBrains Mono
      *  does). On by default — `true` leaves the font's defaults (ligatures show); `false` disables them. */
     val fontLigatures: Boolean = true,
+    /** Show the open-file tab strip above the editor. Hidden by default for a denser workspace. */
+    val showEditorTabs: Boolean = false,
+    /** Show the caret-aware module/type/member breadcrumb row. Hidden by default. */
+    val showBreadcrumbBar: Boolean = false,
+    /** Show one-based line numbers in the editor gutter. */
+    val showLineNumbers: Boolean = true,
+    /** Preferred total editor-gutter width in dp. The renderer may expand it to fit multi-digit line numbers. */
+    val gutterWidthDp: Int = DEFAULT_GUTTER_WIDTH_DP,
     val inlayHints: Boolean = true,
     val semanticHighlighting: Boolean = true,
     val codeFolding: Boolean = true,
@@ -95,6 +103,9 @@ data class IdeSettings(
         const val CODE_FONT_MONOSPACE = "monospace"
         const val COMPLETION_STYLE_REGULAR = "regular"
         const val COMPLETION_STYLE_COMPACT = "compact"
+        const val DEFAULT_GUTTER_WIDTH_DP = 34
+        const val MIN_GUTTER_WIDTH_DP = 34
+        const val MAX_GUTTER_WIDTH_DP = 96
 
         // Bounds the UI sliders enforce and the store clamps to (a hand-edited prefs file can't push the
         // editor into an unusable state).

@@ -31,6 +31,11 @@ class SettingsStore(
             editorFontScale = (int("editor.fontScale", (d.editorFontScale * 100).toInt()) / 100f).coerceIn(MIN_FONT_SCALE, MAX_FONT_SCALE),
             codeFont = oneOf("editor.codeFont", d.codeFont, IdeSettings.CODE_FONT_JETBRAINS, IdeSettings.CODE_FONT_MONOSPACE),
             fontLigatures = bool("editor.fontLigatures", d.fontLigatures),
+            showEditorTabs = bool("editor.showEditorTabs", d.showEditorTabs),
+            showBreadcrumbBar = bool("editor.showBreadcrumbBar", d.showBreadcrumbBar),
+            showLineNumbers = bool("editor.showLineNumbers", d.showLineNumbers),
+            gutterWidthDp = int("editor.gutterWidthDp", d.gutterWidthDp)
+                .coerceIn(IdeSettings.MIN_GUTTER_WIDTH_DP, IdeSettings.MAX_GUTTER_WIDTH_DP),
             inlayHints = bool("editor.inlayHints", d.inlayHints),
             semanticHighlighting = bool("editor.semanticHighlighting", d.semanticHighlighting),
             codeFolding = bool("editor.codeFolding", d.codeFolding),
@@ -133,6 +138,10 @@ class SettingsStore(
         put("editor.fontScale", (s.editorFontScale * 100).toInt().toString())
         put("editor.codeFont", s.codeFont)
         put("editor.fontLigatures", s.fontLigatures.toString())
+        put("editor.showEditorTabs", s.showEditorTabs.toString())
+        put("editor.showBreadcrumbBar", s.showBreadcrumbBar.toString())
+        put("editor.showLineNumbers", s.showLineNumbers.toString())
+        put("editor.gutterWidthDp", s.gutterWidthDp.coerceIn(IdeSettings.MIN_GUTTER_WIDTH_DP, IdeSettings.MAX_GUTTER_WIDTH_DP).toString())
         put("editor.inlayHints", s.inlayHints.toString())
         put("editor.semanticHighlighting", s.semanticHighlighting.toString())
         put("editor.codeFolding", s.codeFolding.toString())

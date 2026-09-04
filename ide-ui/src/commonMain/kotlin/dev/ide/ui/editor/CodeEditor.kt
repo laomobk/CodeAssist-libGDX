@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +66,7 @@ import dev.ide.ui.editor.core.smartEnter
 import dev.ide.ui.editor.core.textInputCodePoint
 import dev.ide.ui.editor.core.wordRangeAt
 import dev.ide.ui.generated.resources.Res
+import dev.ide.ui.generated.resources.editor_caret_position
 import dev.ide.ui.generated.resources.rename_failed
 import dev.ide.ui.platform.isMobilePlatform
 import dev.ide.ui.theme.Ca
@@ -146,6 +149,10 @@ fun CodeEditor(
     horizontalScrollbar: Boolean = true,
     /** Render programming ligatures (`->`, `!=`, …) when the code font provides them (Settings → Editor; on). */
     fontLigatures: Boolean = true,
+    /** Show one-based line numbers in the gutter; when off, a compact caret position appears at bottom-right. */
+    showLineNumbers: Boolean = true,
+    /** Preferred total gutter width in dp; multi-digit line numbers may require a small automatic expansion. */
+    gutterWidthDp: Int = 34,
     /**
      * The editor is covered by an app-level overlay (the file-tree / build-console sheet on a phone, the command
      * palette, a destination sheet). The floating popups are separate Popup windows that would otherwise sit ON
@@ -181,6 +188,8 @@ fun CodeEditor(
             wrapIndent,
             horizontalScrollbar,
             fontLigatures,
+            showLineNumbers,
+            gutterWidthDp,
             obscured,
             onEditorAction,
         )
@@ -212,6 +221,8 @@ private fun CodeEditorContent(
     wrapIndent: Boolean = true,
     horizontalScrollbar: Boolean = true,
     fontLigatures: Boolean = true,
+    showLineNumbers: Boolean = true,
+    gutterWidthDp: Int = 34,
     obscured: Boolean = false,
     onEditorAction: suspend (actionId: String, selStart: Int, selEnd: Int) -> Unit = { _, _, _ -> },
 ) {
@@ -229,7 +240,9 @@ private fun CodeEditorContent(
     val liveScale = rememberUpdatedState(zoom) // read inside the pinch gesture (pointerInput captures once)
 
     // ---- state holders: text metrics + render cache, viewport geometry, and per-tab interaction state ----
-    val renderState = rememberEditorRenderState(session, measurer, density, colors, typography, zoom, fontLigatures)
+    val renderState = rememberEditorRenderState(
+        session, measurer, density, colors, typography, zoom, fontLigatures, showLineNumbers, gutterWidthDp,
+    )
     val geometry = rememberEditorGeometry(session, renderState, editorIme, wordWrap, wrapIndent)
     val interaction = rememberEditorInteraction(session, geometry, wordWrap)
     val metrics = renderState.metrics
@@ -1062,6 +1075,7 @@ private fun CodeEditorContent(
                         foldableStartLines = renderState.foldableStartLines,
                         foldStripWidth = renderState.foldStripPx,
                         hoveredLine = interaction.hoveredLine,
+                        showLineNumbers = showLineNumbers,
                         numberLayout = renderState::numberLayout,
                         diagByLine = diagByLine,
                         bracketPair = bracketPair,
@@ -1087,6 +1101,19 @@ private fun CodeEditorContent(
                 gutterWidthPx = gutterWidthPx,
                 thumbColor = colors.textTertiary,
                 trackColor = colors.separator,
+            )
+        }
+
+        if (!showLineNumbers) {
+            val caretLine = editorSession.doc.lineForOffset(caretOffset)
+            val caretColumn = caretOffset - editorSession.doc.lineStart(caretLine)
+            Text(
+                text = stringResource(Res.string.editor_caret_position, caretLine + 1, caretColumn + 1),
+                color = colors.textTertiary.copy(alpha = 0.7f),
+                style = Ca.type.codeSmall,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 8.dp, bottom = 16.dp),
             )
         }
 
@@ -1311,6 +1338,7 @@ private fun CompletionPopupLayer(
                 growUpward,
             )
         }
+
         val roomDp = with(density) { availableRoomPx.toDp() }
 
         Popup(

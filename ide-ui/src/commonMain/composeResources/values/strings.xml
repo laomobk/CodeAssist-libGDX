@@ -862,6 +862,7 @@ We never collect your code, file or project names, which features you use, or an
     <string name="edoverlay_rename_hint">Enter to rename '%1$s', Esc to cancel</string>
     <string name="edoverlay_go_to_line">Go to line</string>
     <string name="edoverlay_go_to_line_hint">Line 1–%1$d  (line or line:column)</string>
+    <string name="editor_caret_position">Line %1$d, Column %2$d</string>
     <string name="edoverlay_no_documentation">No documentation</string>
     <string name="edoverlay_cut">Cut</string>
     <string name="edoverlay_paste">Paste</string>
@@ -1423,6 +1424,14 @@ We never collect your code, file or project names, which features you use, or an
     <string name="set_editor_code_font_monospace">System monospace</string>
     <string name="set_editor_ligatures">Font ligatures</string>
     <string name="set_editor_ligatures_desc">Render programming ligatures (-> != >= …) when the code font has them</string>
+    <string name="set_editor_tabs">Show tab bar</string>
+    <string name="set_editor_tabs_desc">Show open files in a tab strip above the editor</string>
+    <string name="set_editor_breadcrumb">Show navigation bar</string>
+    <string name="set_editor_breadcrumb_desc">Show the current module, type, and member above the editor</string>
+    <string name="set_editor_line_numbers">Show line numbers</string>
+    <string name="set_editor_line_numbers_desc">Show line numbers in the editor gutter</string>
+    <string name="set_editor_gutter_width">Gutter width</string>
+    <string name="set_editor_gutter_width_desc">Preferred gutter width; expands only when needed to fit line numbers</string>
     <string name="set_editor_inlay">Inlay hints</string>
     <string name="set_editor_inlay_desc">Inferred types and parameter-name hints, shown inline</string>
     <string name="set_editor_semantic">Semantic highlighting</string>

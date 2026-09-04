@@ -1758,6 +1758,14 @@ data class UiSettings(
     val codeFont: String = "jetbrains",
     /** Render programming ligatures (`->`, `!=`, `>=`, …) when the code font provides them (on by default). */
     val fontLigatures: Boolean = true,
+    /** Show the open-file tab strip above the editor. */
+    val showEditorTabs: Boolean = false,
+    /** Show the caret-aware module/type/member breadcrumb row. */
+    val showBreadcrumbBar: Boolean = false,
+    /** Show one-based line numbers in the editor gutter. */
+    val showLineNumbers: Boolean = true,
+    /** Preferred total gutter width in dp; the renderer may expand it to fit line numbers. */
+    val gutterWidthDp: Int = 34,
     val inlayHints: Boolean = true,
     val semanticHighlighting: Boolean = true,
     val codeFolding: Boolean = true,
